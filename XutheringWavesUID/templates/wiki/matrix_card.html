@@ -157,13 +157,6 @@
             gap: 12px;
         }
 
-        .buff-icon {
-            width: 40px;
-            height: 40px;
-            flex-shrink: 0;
-            border-radius: 8px;
-        }
-
         .buff-content {
             flex: 1;
             min-width: 0;
@@ -350,9 +343,6 @@
                 <div class="buff-grid">
                     {% for buff in buffs %}
                     <div class="buff-item">
-                        {% if buff.icon %}
-                        <img src="{{ buff.icon }}" class="buff-icon">
-                        {% endif %}
                         <div class="buff-content">
                             <div class="buff-name">{{ buff.name }}</div>
                             <div class="buff-desc">{{ buff.desc }}</div>
@@ -407,7 +397,9 @@
                 <div class="role-grid">
                     {% for role in roles %}
                     <div class="role-item">
+                        {% if role.icon %}
                         <img src="{{ role.icon }}" class="role-avatar">
+                        {% endif %}
                         <div class="role-content">
                             <div class="role-name">{{ role.name }}</div>
                             <div class="role-desc">{{ role.desc }}</div>

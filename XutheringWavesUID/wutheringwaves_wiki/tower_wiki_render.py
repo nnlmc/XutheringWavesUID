@@ -14,7 +14,8 @@ from ..utils.resource.RESOURCE_PATH import (
 )
 from ..utils.image import ELEMENT_COLOR_MAP
 from ..utils.resource.download_file import get_phantom_img
-from ..utils.name_convert import echo_name_to_echo_id
+from ..utils.image import get_square_avatar
+from ..utils.name_convert import echo_name_to_echo_id, char_name_to_char_id
 from ..utils.render_utils import (
     PLAYWRIGHT_AVAILABLE,
     image_to_base64,
@@ -241,7 +242,6 @@ async def draw_matrix_wiki_render(season: Optional[int] = None) -> Optional[byte
         desc = desc.replace("<br>", "\n").replace("<br/>", "\n")
         desc = re.sub(r"<[^>]+>", "", desc)
         buffs.append({
-            "icon": buff.get("Icon", ""),
             "name": buff.get("Name", ""),
             "desc": desc,
         })
@@ -254,6 +254,9 @@ async def draw_matrix_wiki_render(season: Optional[int] = None) -> Optional[byte
         if name in seen_names:
             continue
         seen_names.add(name)
+
+        # 通过名字反查本地声骸图标
+        icon_base64 = await get_monster_icon(name)
 
         # 提取Tags
         tags = []
@@ -282,7 +285,7 @@ async def draw_matrix_wiki_render(season: Optional[int] = None) -> Optional[byte
 
         bosses.append({
             "name": name,
-            "icon": wave.get("SmallIcon", ""),
+            "icon": icon_base64,
             "tags": tags,
             "desc_lines": desc_lines,
         })
@@ -292,7 +295,16 @@ async def draw_matrix_wiki_render(season: Optional[int] = None) -> Optional[byte
     for role_data in matrix_data.get("Roles", []):
         role_info = role_data.get("RoleInfo", {})
         name = role_info.get("Name", "未知")
-        icon = role_info.get("RoleHeadIconCircle", "")
+
+        # 通过角色名反查本地头像
+        role_icon = None
+        char_id = char_name_to_char_id(name)
+        if char_id:
+            try:
+                img = await get_square_avatar(char_id)
+                role_icon = pil_to_base64(img)
+            except Exception:
+                pass
 
         # 获取增益描述
         enhance_descs = role_data.get("EnhanceSkillDesc", [])
@@ -302,7 +314,7 @@ async def draw_matrix_wiki_render(season: Optional[int] = None) -> Optional[byte
 
         roles.append({
             "name": name,
-            "icon": icon,
+            "icon": role_icon,
             "desc": desc,
         })
 
