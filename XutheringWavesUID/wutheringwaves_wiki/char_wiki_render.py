@@ -303,8 +303,6 @@ async def prepare_char_forte_data_render(data: Dict, char_id: str) -> Dict[str, 
         sorted_desc_keys = sorted(desc_map.keys())
         
         items = []
-        group_images_seen = set()
-        group_imgs_b64 = []
         for desc_key in sorted_desc_keys:
             item = desc_map[desc_key]
             desc_text = item.get("Desc", "")
@@ -329,26 +327,26 @@ async def prepare_char_forte_data_render(data: Dict, char_id: str) -> Dict[str, 
                     else:
                         final_desc += f"{{{part}}}"
 
-            # Collect images at group level (deduplicated)
+            # Collect images per item
+            item_imgs_b64 = []
             for img_path_str in image_list:
-                if img_path_str in group_images_seen:
+                if not img_path_str:
                     continue
-                group_images_seen.add(img_path_str)
                 img_name = os.path.basename(img_path_str)
                 if not img_name.lower().endswith((".png", ".webp", ".jpg")):
                      img_name += ".png"
                 local_img_path = MAP_FORTE_PATH / char_id / img_name
                 if local_img_path.exists():
-                    group_imgs_b64.append(image_to_base64(local_img_path))
+                    item_imgs_b64.append(image_to_base64(local_img_path))
 
             items.append({
                 "desc": final_desc,
+                "images": item_imgs_b64,
             })
 
         groups.append({
             "name": group_name,
             "forte_items": items,
-            "images": group_imgs_b64,
         })
         
     return {

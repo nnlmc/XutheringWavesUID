@@ -578,10 +578,10 @@
                     {% for item in group.forte_items %}
                     <div class="forte-group">
                         <div class="card-desc">{{ item.desc | safe }}</div>
+                        {% for img in item.images %}
+                        <img src="{{ img }}" class="forte-img">
+                        {% endfor %}
                     </div>
-                    {% endfor %}
-                    {% for img in group.images %}
-                    <img src="{{ img }}" class="forte-img">
                     {% endfor %}
                 </div>
                 {% endfor %}
