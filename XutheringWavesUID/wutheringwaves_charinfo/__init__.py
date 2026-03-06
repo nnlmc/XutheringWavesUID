@@ -257,10 +257,26 @@ async def send_one_char_detail_msg(bot: Bot, ev: Event):
         elif refresh_behavior == "refresh_and_send_separately":
             # 刷新并分别发送
             await bot.send(msg)
-            if not uid:
-                return await bot.send(error_reply(WAVES_CODE_103))
             im = await draw_char_detail_img(ev, uid, char, user_id, None)
             await bot.send(im)
+        elif refresh_behavior == "concatenate":
+            # 拼接为一张图发送
+            im = await draw_char_detail_img(ev, uid, char, user_id, None, need_convert_img=False)
+            if isinstance(im, str):
+                await bot.send(msg)
+                await bot.send(im)
+            elif isinstance(im, Image.Image):
+                from io import BytesIO
+                refresh_img = Image.open(BytesIO(msg))
+                total_width = max(refresh_img.width, im.width)
+                total_height = refresh_img.height + im.height
+                new_im = Image.new("RGBA", (total_width, total_height))
+                new_im.paste(refresh_img, ((total_width - refresh_img.width) // 2, 0))
+                new_im.paste(im, ((total_width - im.width) // 2, refresh_img.height))
+                new_im = await convert_img(new_im)
+                await bot.send(new_im)
+            else:
+                await bot.send_option(msg, buttons)
         else:  # refresh_and_send 或默认行为
             # 刷新并合并发送
             if not uid:
