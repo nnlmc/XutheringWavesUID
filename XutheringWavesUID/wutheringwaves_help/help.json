@@ -496,7 +496,7 @@
       {
         "name": "角色机制",
         "desc": "角色机制",
-        "eg": "维里奈技能",
+        "eg": "维里奈机制",
         "need_ck": false,
         "need_sk": false,
         "need_admin": false
