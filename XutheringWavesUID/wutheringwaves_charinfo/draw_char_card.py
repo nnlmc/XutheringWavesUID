@@ -272,10 +272,11 @@ async def ph_card_draw(
                 sh_temp.alpha_composite(ph_level_img, (128, 58))
 
                 # 声骸分数背景
-                ph_score_img = Image.new("RGBA", (100, 30), (255, 255, 255, 0))
+                _score_w = 120 if locale else 100
+                ph_score_img = Image.new("RGBA", (_score_w, 30), (255, 255, 255, 0))
                 ph_score_img_draw = ImageDraw.Draw(ph_score_img)
-                ph_score_img_draw.rounded_rectangle([0, 0, 100, 30], radius=8, fill=(186, 55, 42, int(0.8 * 255)))
-                ph_score_img_draw.text((50, 13), f"{_score}{t('分', locale)}", "white", waves_font_24, "mm")
+                ph_score_img_draw.rounded_rectangle([0, 0, _score_w, 30], radius=8, fill=(186, 55, 42, int(0.8 * 255)))
+                ph_score_img_draw.text((_score_w // 2, 13), f"{_score}{t('分', locale)}", "white", waves_font_24, "mm")
                 sh_temp.alpha_composite(ph_score_img, (223, 58))
 
                 for index in range(0, _phantom.cost):
@@ -298,7 +299,7 @@ async def ph_card_draw(
                     _prop_display = t(_prop.attributeName, locale, partial=True)
                     sh_temp_draw.text(
                         (60, 187 + index * oset),
-                        f"{_prop_display[:6]}",
+                        f"{_prop_display[:12 if locale else 6]}",
                         name_color,
                         waves_font_24,
                         "lm",
@@ -329,9 +330,9 @@ async def ph_card_draw(
             score_temp.alpha_composite(sh_score_c)
             score_temp_draw = ImageDraw.Draw(score_temp)
 
-            score_temp_draw.text((180, 260), t("声骸评级", locale), GREY, waves_font_40, "mm")
+            score_temp_draw.text((180, 260), t("声骸评级", locale), GREY, waves_font_30 if locale else waves_font_40, "mm")
             score_temp_draw.text((180, 380), f"{phantom_score:.2f}分", "white", waves_font_40, "mm")
-            score_temp_draw.text((180, 440), t("声骸评分", locale), GREY, waves_font_40, "mm")
+            score_temp_draw.text((180, 440), t("声骸评分", locale), GREY, waves_font_30 if locale else waves_font_40, "mm")
         else:
             abs_bg = Image.open(TEXT_PATH / "abs.png")
             score_temp = Image.new("RGBA", abs_bg.size)
@@ -362,7 +363,7 @@ async def ph_card_draw(
                 ph_bg.alpha_composite(prop_img, (20, 32))
                 ph_bg_draw = ImageDraw.Draw(ph_bg)
 
-                ph_bg_draw.text((70, 50), f"{name[:6]}", name_color, waves_font_24, "lm")
+                ph_bg_draw.text((70, 50), f"{name[:12 if locale else 6]}", name_color, waves_font_24, "lm")
                 ph_bg_draw.text((343, 50), f"{value}", name_color, waves_font_24, "rm")
 
                 phantom_temp.alpha_composite(ph_bg, (40 + mi * 370, 100 + ni * 50))
@@ -490,10 +491,11 @@ async def draw_fixed_img(img, avatar, account_info, role_detail, locale=""):
     if account_info.is_full:
         title_bar = Image.open(TEXT_PATH / "title_bar.png")
         title_bar_draw = ImageDraw.Draw(title_bar)
-        title_bar_draw.text((510, 125), t("联觉等级", locale), GREY, waves_font_26, "mm")
+        _level_font = waves_font_20 if locale else waves_font_26
+        title_bar_draw.text((510, 125), t("联觉等级", locale), GREY, _level_font, "mm")
         title_bar_draw.text((510, 78), f"Lv.{account_info.level}", "white", waves_font_42, "mm")
 
-        title_bar_draw.text((660, 125), t("索拉等阶", locale), GREY, waves_font_26, "mm")
+        title_bar_draw.text((660, 125), t("索拉等阶", locale), GREY, _level_font, "mm")
         title_bar_draw.text((660, 78), f"Lv.{account_info.worldLevel}", "white", waves_font_42, "mm")
 
         logo_img = get_small_logo(2)
@@ -876,7 +878,14 @@ async def draw_char_detail_img(
 
         name = re.sub(r'[",，]+', "", _mz.name) if _mz.name else ""
         name = t(name, locale, partial=True)
-        if len(name) >= 8:
+        if locale:
+            # 非中文：缩小字体，超长时换行
+            _chain_font = waves_font_12
+            if len(name) > 14:
+                mid = len(name) // 2
+                name = name[:mid] + "\n" + name[mid:]
+            mz_bg_temp_draw.text((147, 228), name, "white", _chain_font, "mm")
+        elif len(name) >= 8:
             mz_bg_temp_draw.text((147, 230), f"{name}", "white", waves_font_16, "mm")
         else:
             mz_bg_temp_draw.text((147, 230), f"{name}", "white", waves_font_20, "mm")
@@ -990,11 +999,11 @@ async def draw_char_detail_img(
         if index < 4:
             name = name.replace("破坏", "")  # 写不下喵
             sh_bg.alpha_composite(prop_img, (60 + 251 * (index % 2), 40 + (index // 2) * 55))
-            sh_bg_draw.text((115 + 251 * (index % 2), 58 + (index // 2) * 55), f"{name[:6]}", name_color, waves_font_24, "lm")
+            sh_bg_draw.text((115 + 251 * (index % 2), 58 + (index // 2) * 55), f"{name[:12 if locale else 6]}", name_color, waves_font_24, "lm")
             sh_bg_draw.text((530 - 251 * ((index + 1) % 2), 58 + (index // 2) * 55), f"{value}", name_color, waves_font_24, "rm")
         else:
             sh_bg.alpha_composite(prop_img, (60, 40 + (index - 2) * 55))
-            sh_bg_draw.text((115, 58 + (index - 2) * 55), f"{name[:8]}", name_color, waves_font_24, "lm")
+            sh_bg_draw.text((115, 58 + (index - 2) * 55), f"{name[:16 if locale else 8]}", name_color, waves_font_24, "lm")
             sh_bg_draw.text((530, 58 + (index - 2) * 55), f"{value}", name_color, waves_font_24, "rm")
 
     right_image_temp.alpha_composite(sh_bg, dest=(0, 80))
@@ -1015,7 +1024,8 @@ async def draw_char_detail_img(
         skill_bg.paste(skill_img, (57, 65), skill_img)
 
         skill_bg_draw = ImageDraw.Draw(skill_bg)
-        skill_bg_draw.text((150, 83), t(_skill.skill.type, locale), "white", waves_font_25, "lm")
+        _skill_font = waves_font_18 if locale else waves_font_25
+        skill_bg_draw.text((150, 83), t(_skill.skill.type, locale), "white", _skill_font, "lm")
         skill_bg_draw.text((150, 113), f"Lv.{_skill.level}", "white", waves_font_25, "lm")
 
         skill_bg_temp = Image.new("RGBA", skill_bg.size)
@@ -1157,10 +1167,11 @@ async def draw_char_score_img(ev: Event, uid: str, char: str, user_id: str, wave
                 sh_temp.alpha_composite(ph_level_img, (128, 58))
 
                 # 声骸分数背景
-                ph_score_img = Image.new("RGBA", (100, 30), (255, 255, 255, 0))
+                _score_w = 120 if locale else 100
+                ph_score_img = Image.new("RGBA", (_score_w, 30), (255, 255, 255, 0))
                 ph_score_img_draw = ImageDraw.Draw(ph_score_img)
-                ph_score_img_draw.rounded_rectangle([0, 0, 100, 30], radius=8, fill=(186, 55, 42, int(0.8 * 255)))
-                ph_score_img_draw.text((50, 13), f"{_score}{t('分', locale)}", "white", waves_font_24, "mm")
+                ph_score_img_draw.rounded_rectangle([0, 0, _score_w, 30], radius=8, fill=(186, 55, 42, int(0.8 * 255)))
+                ph_score_img_draw.text((_score_w // 2, 13), f"{_score}{t('分', locale)}", "white", waves_font_24, "mm")
                 sh_temp.alpha_composite(ph_score_img, (228, 58))
 
                 for index in range(0, _phantom.cost):
@@ -1183,7 +1194,7 @@ async def draw_char_score_img(ev: Event, uid: str, char: str, user_id: str, wave
                     _prop_display = t(_prop.attributeName, locale, partial=True)
                     sh_temp_draw.text(
                         (15, 187 + index * oset),
-                        f"{_prop_display[:6]}",
+                        f"{_prop_display[:12 if locale else 6]}",
                         name_color,
                         waves_font_24,
                         "lm",
@@ -1235,9 +1246,9 @@ async def draw_char_score_img(ev: Event, uid: str, char: str, user_id: str, wave
             score_temp.alpha_composite(sh_score_c)
             score_temp_draw = ImageDraw.Draw(score_temp)
 
-            score_temp_draw.text((180, 260), t("声骸评级", locale), GREY, waves_font_40, "mm")
+            score_temp_draw.text((180, 260), t("声骸评级", locale), GREY, waves_font_30 if locale else waves_font_40, "mm")
             score_temp_draw.text((180, 380), f"{phantom_score:.2f}分", "white", waves_font_40, "mm")
-            score_temp_draw.text((180, 440), t("声骸评分", locale), GREY, waves_font_40, "mm")
+            score_temp_draw.text((180, 440), t("声骸评分", locale), GREY, waves_font_30 if locale else waves_font_40, "mm")
         else:
             abs_bg = Image.open(TEXT_PATH / "abs.png")
             score_temp = Image.new("RGBA", abs_bg.size)
@@ -1268,7 +1279,7 @@ async def draw_char_score_img(ev: Event, uid: str, char: str, user_id: str, wave
                 ph_bg.alpha_composite(prop_img, (20, 32))
                 ph_bg_draw = ImageDraw.Draw(ph_bg)
 
-                ph_bg_draw.text((70, 50), f"{name[:6]}", name_color, waves_font_24, "lm")
+                ph_bg_draw.text((70, 50), f"{name[:12 if locale else 6]}", name_color, waves_font_24, "lm")
                 ph_bg_draw.text((350, 50), f"{value}", name_color, waves_font_24, "rm")
 
                 right_image_temp.alpha_composite(ph_bg.resize((500, 125)), (0, (ni + mi * 4) * 70))
