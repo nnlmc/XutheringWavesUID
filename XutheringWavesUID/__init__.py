@@ -110,6 +110,14 @@ logger.debug("[XutheringWavesUID] Bot 消息发送 hook 已注册")
 logger.debug("[XutheringWavesUID] 用户活跃度 hook 已注册")
 
 
+# 修正: 仇远calc.json 热熔->气动
+_calc_1411 = get_res_path() / "XutheringWavesUID" / "resource" / "map" / "character" / "1411" / "calc.json"
+if _calc_1411.exists():
+    _content = _calc_1411.read_text(encoding="utf-8")
+    if "热熔" in _content:
+        _calc_1411.write_text(_content.replace("热熔", "气动"), encoding="utf-8")
+        logger.info("[XutheringWavesUID] 已修正仇远calc.json: 热熔->气动")
+
 # 以下是2025年的迁移
 # # 迁移部分
 # MAIN_PATH = get_res_path()

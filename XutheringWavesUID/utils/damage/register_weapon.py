@@ -691,7 +691,7 @@ class Weapon_21020066(WeaponAbstract):
         """施放变奏技能"""
         if attr.char_damage != phantom_damage:
             return
-        dmg = f"{self.param(4)}"
+        dmg = f"{self.param(5)}"
         title = self.get_title()
         msg = f"施放变奏技能时，队伍声骸技能伤害加成提升{dmg}"
         attr.add_dmg_bonus(calc_percent_expression(dmg), title, msg)
