@@ -34,6 +34,7 @@ from ..utils.database.models import WavesBind, WavesUser, WavesStaminaRecord, Wa
 from ..utils.localization import t
 from ..utils.api.request_util import KuroApiResp
 from ..utils.fonts.waves_fonts import (
+    waves_font_18,
     waves_font_24,
     waves_font_25,
     waves_font_26,
@@ -444,6 +445,7 @@ async def _render_stamina_card(
 
     # 我去，我真变态！
     context = {
+        "locale": locale,
         "user_name": daily_info.roleName,
         "role_id": daily_info.roleId,
         "uid": daily_info.roleId,
@@ -573,7 +575,8 @@ async def _render_stamina_card_pil(
 
     title_bar = Image.open(TEXT_PATH / "title_bar.png")
     title_bar_draw = ImageDraw.Draw(title_bar)
-    title_bar_draw.text((480, 125), t("战歌重奏", locale), GREY, waves_font_26, "mm")
+    hud_label_font = waves_font_18 if locale and locale != "chs" else waves_font_26
+    title_bar_draw.text((480, 125), t("战歌重奏", locale), GREY, hud_label_font, "mm")
     color = URGENT_COLOR if account_info.weeklyInstCount != 0 else GREEN
     if account_info.weeklyInstCountLimit is not None and account_info.weeklyInstCount is not None:
         title_bar_draw.text(
@@ -584,7 +587,7 @@ async def _render_stamina_card_pil(
             "mm",
         )
 
-    title_bar_draw.text((630, 125), t("先约电台", locale), GREY, waves_font_26, "mm")
+    title_bar_draw.text((630, 125), t("先约电台", locale), GREY, hud_label_font, "mm")
     title_bar_draw.text(
         (630, 78),
         f"Lv.{daily_info.battlePassData[0].cur}",
@@ -594,7 +597,7 @@ async def _render_stamina_card_pil(
     )
 
     color = RED if account_info.rougeScore != account_info.rougeScoreLimit else GREEN
-    title_bar_draw.text((810, 125), t("千道门扉的异想", locale), GREY, waves_font_26, "mm")
+    title_bar_draw.text((810, 125), t("千道门扉的异想", locale), GREY, hud_label_font, "mm")
     title_bar_draw.text(
         (810, 78),
         f"{account_info.rougeScore}/{account_info.rougeScoreLimit}",

@@ -279,13 +279,20 @@
     }
 
     .mini-label {
-        font-size: 18px;
+        font-size: {% if locale and locale != 'chs' %}13px{% else %}18px{% endif %};
         color: rgba(255, 255, 255, 0.8);
         text-transform: uppercase;
         margin-top: 4px;
         font-weight: bold;
         text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+        {% if locale and locale != 'chs' %}
+        white-space: normal;
+        text-align: center;
+        max-width: 110px;
+        line-height: 1.3;
+        {% else %}
         white-space: nowrap;
+        {% endif %}
     }
 
     .mini-sub {
