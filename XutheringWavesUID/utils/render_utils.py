@@ -171,15 +171,16 @@ async def _acquire_page():
             except asyncio.QueueEmpty:
                 break
 
-        # Create shared context if needed
+        # Create shared context if needed (rare, only first time)
         if _pool_ctx is None or _pool_ctx._impl_obj._is_closed:
             _pool_ctx = await browser.new_context(
                 viewport={"width": 1200, "height": 1000}
             )
 
-        page = await _pool_ctx.new_page()
-        _active_renders += 1
-        return page, gen
+    # Create page outside lock — allows parallel page creation
+    page = await _pool_ctx.new_page()
+    _active_renders += 1
+    return page, _pool_generation
 
 
 async def _release_page(page, gen: int):
