@@ -140,12 +140,10 @@ async def draw_stamina_img(bot: Bot, ev: Event):
         if len(valid_daily_list) == 0:
             return ERROR_CODE[WAVES_CODE_102]
 
-        # 开始绘图任务
-        task = []
+        # 逐个绘图（避免并发渲染竞争）
         img = Image.new("RGBA", (based_w, based_h * len(valid_daily_list)), (0, 0, 0, 0))
         for uid_index, valid in enumerate(valid_daily_list):
-            task.append(_draw_all_stamina_img(ev, img, valid, uid_index, locale))
-        await asyncio.gather(*task)
+            await _draw_all_stamina_img(ev, img, valid, uid_index, locale)
         res = await convert_img(img)
         logger.info("[鸣潮][每日信息]绘图已完成,等待发送!")
     except TypeError:
