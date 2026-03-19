@@ -1,3 +1,4 @@
+import re
 import json
 from typing import Dict, List, Literal, Optional, Tuple, TypedDict
 
@@ -11,6 +12,15 @@ _enabled = False
 # 按 key 从长到短排序的列表，用于 partial 匹配时避免短 key 提前命中
 _sorted_keys: List[str] = []
 
+# 标点无关匹配：去标点后的 key -> 原始 key
+_CJK_PUNCT_RE = re.compile(r'[，。！？；：、""''（）【】《》…—·～‧\s]')
+_stripped_index: Dict[str, str] = {}
+_stripped_keys: Dict[str, str] = {}
+
+
+def _strip_punct(s: str) -> str:
+    return _CJK_PUNCT_RE.sub('', s)
+
 
 class LocaleEntry(TypedDict):
     cht: str
@@ -23,8 +33,14 @@ LOCALIZATION: Dict[str, LocaleEntry] = {}
 
 
 def _rebuild_sorted_keys() -> None:
-    global _sorted_keys
+    global _sorted_keys, _stripped_index, _stripped_keys
     _sorted_keys = sorted(LOCALIZATION.keys(), key=len, reverse=True)
+    _stripped_index = {}
+    _stripped_keys = {}
+    for k in _sorted_keys:
+        stripped = _strip_punct(k)
+        _stripped_index.setdefault(stripped, k)
+        _stripped_keys[k] = stripped
 
 
 def _register(entries: Dict[str, LocaleEntry]) -> None:
@@ -72,6 +88,7 @@ def t(text: str, locale: Optional[str], partial: bool = False) -> str:
     本地化未启用、locale 为空或 None 时原样返回。
     若字典中无对应条目，也原样返回。
 
+    匹配时会同时尝试 key 的原版和去标点版，以忽略中文标点差异。
     partial=True 时，对 text 中所有匹配的子串进行替换（按 key 从长到短匹配）。
     """
     if not _enabled or not locale:
@@ -79,15 +96,24 @@ def t(text: str, locale: Optional[str], partial: bool = False) -> str:
     if not partial:
         entry = LOCALIZATION.get(text)
         if entry is None:
+            orig_key = _stripped_index.get(_strip_punct(text))
+            if orig_key:
+                entry = LOCALIZATION[orig_key]
+        if entry is None:
             return text
         return entry.get(locale, text)
     # partial 模式：逐个替换匹配到的子串
     result = text
     for key in _sorted_keys:
-        if key not in result:
-            continue
         entry = LOCALIZATION[key]
         replacement = entry.get(locale)
-        if replacement:
+        if not replacement:
+            continue
+        if key in result:
             result = result.replace(key, replacement)
+            continue
+        # key 去标点后再试一次
+        stripped = _stripped_keys.get(key, key)
+        if stripped != key and stripped in result:
+            result = result.replace(stripped, replacement)
     return result
