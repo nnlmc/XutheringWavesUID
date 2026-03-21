@@ -47,6 +47,7 @@ from .api import (
     MONTH_LIST_URL,
     ANN_CONTENT_URL,
     BATCH_ROLE_COST,
+    DATA_REVIEW_URL,
     OWNED_ROLE_INFO,
     PERIOD_LIST_URL,
     ROLE_DETAIL_URL,
@@ -870,6 +871,12 @@ class WavesApi:
         data = {}
         res = await self._waves_request(MINE_V2_URL, "POST", headers, data=data)
         return res
+
+    async def get_data_review(self, token: str):
+        """获取签到数据回顾"""
+        headers = await get_community_header()
+        headers.update({"token": token})
+        return await self._waves_request(DATA_REVIEW_URL, "GET", headers)
 
     async def get_wiki_home(self):
         """获取wiki首页"""
