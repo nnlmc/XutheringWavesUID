@@ -36,7 +36,7 @@ def get_help_data() -> Dict[str, PluginHelp]:
         {
             "name": "签到日历",
             "desc": "鸣潮签到日历",
-            "eg": "签到",
+            "eg": "签到日历",
             "need_ck": True,
             "need_sk": False,
             "need_admin": False,
