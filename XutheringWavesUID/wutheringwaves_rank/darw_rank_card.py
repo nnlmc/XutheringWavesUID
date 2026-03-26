@@ -12,6 +12,7 @@ from gsuid_core.models import Event
 from gsuid_core.utils.image.convert import convert_img
 from gsuid_core.utils.image.image_tools import crop_center_img
 
+from .rank_badge import draw_rank_badge
 from ..utils.util import hide_uid
 from ..utils.cache import TimedCache
 from ..utils.image import (
@@ -508,31 +509,10 @@ async def draw_rank_img(bot: Bot, ev: Event, char: str, rank_type: str) -> Union
             bar_star_draw.text((870, 75), f"{damage_title}", "white", waves_font_16, "mm")
 
         # 排名
-        rank_color = (54, 54, 54)
-        if index == 0:
-            rank_color = (255, 0, 0)
-        elif index == 1:
-            rank_color = (255, 180, 0)
-        elif index == 2:
-            rank_color = (185, 106, 217)
-
-        def draw_rank_id(rank_id, size=(50, 50), draw=(24, 24), dest=(40, 30)):
-            info_rank = Image.new("RGBA", size, color=(255, 255, 255, 0))
-            rank_draw = ImageDraw.Draw(info_rank)
-            rank_draw.rounded_rectangle([0, 0, size[0], size[1]], radius=8, fill=rank_color + (int(0.9 * 255),))
-            rank_draw.text(draw, f"{rank_id}", "white", waves_font_34, "mm")
-            bar_bg.alpha_composite(info_rank, dest)
-
         rank_id = index + 1
         if rankId is not None and rank_id > rank_length:
             rank_id = rankId
-
-        if rank_id is not None and rank_id > 999:
-            draw_rank_id("999+", size=(100, 50), draw=(50, 24), dest=(10, 30))
-        elif rank_id is not None and rank_id > 99:
-            draw_rank_id(rank_id, size=(75, 50), draw=(37, 24), dest=(25, 30))
-        else:
-            draw_rank_id(rank_id or 0, size=(50, 50), draw=(24, 24), dest=(40, 30))
+        draw_rank_badge(bar_bg, rank_id or 0)
 
         # uid
         uid_color = "white"

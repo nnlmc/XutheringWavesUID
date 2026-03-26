@@ -192,7 +192,7 @@ async def upload_matrix_record(
 
 def _get_rank_img_b64(rank: int) -> str:
     """获取 rank-N.png 的 base64"""
-    rank = max(1, min(rank, 7))
+    rank = max(0, min(rank, 7))
     path = TEXT_PATH / f"rank-{rank}.png"
     if path.exists():
         img = Image.open(path)
@@ -202,7 +202,7 @@ def _get_rank_img_b64(rank: int) -> str:
 
 def _get_rank_detail_b64(rank: int) -> str:
     """获取 rank-detail-N.png 的 base64"""
-    rank = max(1, min(rank, 7))
+    rank = max(0, min(rank, 7))
     path = TEXT_PATH / f"rank-detail-{rank}.png"
     if path.exists():
         img = Image.open(path)
@@ -373,6 +373,7 @@ async def _draw_matrix_detail_html(
         # 静态资源
         overview_bg_url = _get_texture_b64("overview-bg.png")
         boss_icon_url = _get_texture_b64("boss.png")
+        matrix_score_icon_url = _get_texture_b64("matrix_score.png")
 
         # 全图背景: matrix-detail-bg-{modeId}
         bg_url = _get_texture_b64(f"matrix-detail-bg-{target_mode_id}.png")
@@ -434,6 +435,16 @@ async def _draw_matrix_detail_html(
                         "chain_name": chain_name,
                     })
 
+                # 不足3人时补占位
+                for _ in range(len(roles_data), 3):
+                    roles_data.append({
+                        "icon_url": "",
+                        "level": None,
+                        "chain": None,
+                        "chain_name": "",
+                        "is_placeholder": True,
+                    })
+
                 # buff图标
                 buff_icon_url = ""
                 if team.buffs:
@@ -479,6 +490,7 @@ async def _draw_matrix_detail_html(
             "modes": modes_data,
             "overview_bg_url": overview_bg_url,
             "boss_icon_url": boss_icon_url,
+            "matrix_score_icon_url": matrix_score_icon_url,
             "is_self_ck": is_self_ck,
             "chain_colors": chain_colors,
         }

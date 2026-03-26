@@ -38,6 +38,7 @@ from ..utils.image import (
     pic_download_from_url,
     parse_bot_color_config,
 )
+from .rank_badge import draw_rank_badge
 from ..utils.resource.RESOURCE_PATH import MATRIX_PATH
 from ..utils.api.model import MatrixDetail
 from ..utils.api.wwapi import (
@@ -81,9 +82,9 @@ pic_cache = TimedCache(600, 200)
 
 def get_score_color(score: int):
     """总排行分数颜色"""
-    if score >= 200000:
+    if score >= 300000:
         return CRYSTAL_SENTINEL
-    elif score >= 150000:
+    elif score >= 200000:
         return (255, 0, 0)
     elif score >= 45000:
         return (234, 183, 4)
@@ -299,27 +300,7 @@ async def draw_all_matrix_rank_card(bot: Bot, ev: Event):
 
         # 排名
         rank_id = rank_temp.rank
-        rank_color = (54, 54, 54)
-        if rank_id == 1:
-            rank_color = (255, 0, 0)
-        elif rank_id == 2:
-            rank_color = (255, 180, 0)
-        elif rank_id == 3:
-            rank_color = (185, 106, 217)
-
-        def draw_rank_id(rank_id, size=(50, 50), draw=(24, 24), dest=(40, 30)):
-            info_rank = Image.new("RGBA", size, color=(255, 255, 255, 0))
-            rank_draw = ImageDraw.Draw(info_rank)
-            rank_draw.rounded_rectangle([0, 0, size[0], size[1]], radius=8, fill=rank_color + (int(0.9 * 255),))
-            rank_draw.text(draw, f"{rank_id}", "white", waves_font_34, "mm")
-            role_bg.alpha_composite(info_rank, dest)
-
-        if rank_id > 999:
-            draw_rank_id("999+", size=(100, 50), draw=(50, 24), dest=(10, 30))
-        elif rank_id > 99:
-            draw_rank_id(rank_id, size=(75, 50), draw=(37, 24), dest=(25, 30))
-        else:
-            draw_rank_id(rank_id, size=(50, 50), draw=(24, 24), dest=(40, 30))
+        draw_rank_badge(role_bg, rank_id)
 
         # 名字
         role_bg_draw.text((210, 75), f"{rank_temp.kuro_name}", "white", waves_font_20, "lm")
@@ -763,27 +744,7 @@ async def draw_matrix_rank_list(bot: Bot, ev: Event):
 
         # 排名
         rank_id = rank_temp_index + 1
-        rank_color = (54, 54, 54)
-        if rank_id == 1:
-            rank_color = (255, 0, 0)
-        elif rank_id == 2:
-            rank_color = (255, 180, 0)
-        elif rank_id == 3:
-            rank_color = (185, 106, 217)
-
-        def draw_rank_id(rank_id, size=(50, 50), draw=(24, 24), dest=(40, 30)):
-            info_rank = Image.new("RGBA", size, color=(255, 255, 255, 0))
-            rank_draw = ImageDraw.Draw(info_rank)
-            rank_draw.rounded_rectangle([0, 0, size[0], size[1]], radius=8, fill=rank_color + (int(0.9 * 255),))
-            rank_draw.text(draw, f"{rank_id}", "white", waves_font_34, "mm")
-            role_bg.alpha_composite(info_rank, dest)
-
-        if rank_id > 999:
-            draw_rank_id("999+", size=(100, 50), draw=(50, 24), dest=(10, 30))
-        elif rank_id > 99:
-            draw_rank_id(rank_id, size=(75, 50), draw=(37, 24), dest=(25, 30))
-        else:
-            draw_rank_id(rank_id, size=(50, 50), draw=(24, 24), dest=(40, 30))
+        draw_rank_badge(role_bg, rank_id)
 
         # 计算所有队伍出场角色的金数
         char_gold_total = 0

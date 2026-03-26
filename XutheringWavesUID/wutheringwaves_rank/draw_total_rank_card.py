@@ -13,6 +13,7 @@ from gsuid_core.models import Event
 from gsuid_core.utils.image.convert import convert_img
 
 from .slash_rank import get_avatar
+from .rank_badge import draw_rank_badge
 from ..utils.util import get_version
 from ..utils.cache import TimedCache
 from ..utils.image import (
@@ -181,31 +182,7 @@ async def draw_total_rank(bot: Bot, ev: Event, pages: int) -> Union[str, bytes]:
 
         # 绘制排名
         rank_id = detail.rank
-        rank_color = (54, 54, 54)
-        if rank_id == 1:
-            rank_color = (255, 0, 0)
-        elif rank_id == 2:
-            rank_color = (255, 180, 0)
-        elif rank_id == 3:
-            rank_color = (185, 106, 217)
-
-        def draw_rank_id(rank_id, size=(50, 50), draw=(24, 24), dest=(40, 30)):
-            info_rank = Image.new("RGBA", size, color=(255, 255, 255, 0))
-            rank_draw = ImageDraw.Draw(info_rank)
-            rank_draw.rounded_rectangle(
-                [0, 0, size[0], size[1]],
-                radius=8,
-                fill=rank_color + (int(0.9 * 255),),
-            )
-            rank_draw.text(draw, f"{rank_id}", "white", waves_font_34, "mm")
-            bar_bg.alpha_composite(info_rank, dest)
-
-        if rank_id > 999:
-            draw_rank_id("999+", size=(100, 50), draw=(50, 24), dest=(10, 35))
-        elif rank_id > 99:
-            draw_rank_id(rank_id, size=(75, 50), draw=(37, 24), dest=(25, 35))
-        else:
-            draw_rank_id(rank_id, size=(50, 50), draw=(24, 24), dest=(40, 35))
+        draw_rank_badge(bar_bg, rank_id)
 
         # 绘制玩家名字
         bar_draw.text((210, 75), f"{detail.kuro_name}", "white", waves_font_20, "lm")
