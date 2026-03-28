@@ -63,7 +63,7 @@ async def upload_custom_card(
     new_images = []
     size_check_failed = []
     for index, upload_image in enumerate(upload_images, start=1):
-        name = f"{char}_{int(time.time() * 1000)}.jpg"
+        name = f"{char_id}_{int(time.time() * 1000)}.jpg"
         temp_path = temp_dir / name
 
         if not temp_path.exists():
