@@ -243,14 +243,6 @@
         "need_ck": false,
         "need_sk": false,
         "need_admin": false
-      },
-      {
-        "name": "年度报告",
-        "desc": "库街区年度航行报告",
-        "eg": "时光机/年度报告/年报",
-        "need_ck": true,
-        "need_sk": true,
-        "need_admin": false
       }
     ]
   },
