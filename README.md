@@ -98,6 +98,8 @@ https://blog.ovoii.io/posts/notes/wwbot
 <img src="./assets/2.png" alt="😅" width="200" />
 <img src="./assets/3.png" alt="😅" width="200" />
 
+辨识方式：总排行含有 国服 字样，显示总人数，具有明显的付费意图。相关名称：knmissy(“岸宝”“莫宁”及同排行其他Bot)，moonshadow。我很遗憾地指出，此人极其同伙是国内开源社区的敌人，为其付费的用户及支持者是其帮凶。
+
 ## 支持设备列表：
 win_amd64: python3.10-3.13<br>
 win_arm64: not yet<br>
