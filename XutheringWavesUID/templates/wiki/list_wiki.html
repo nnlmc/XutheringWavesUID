@@ -329,7 +329,7 @@ g<!DOCTYPE html>
                 <div class="group-title">{{ group.version }} 版本</div>
                 <div class="sonata-grid">
                     {% for sonata in group.sonatas %}
-                    <div class="sonata-card" style="height: {{ group.card_height }}px;">
+                    <div class="sonata-card">
                         <div class="sonata-header">
                             {% if sonata.icon %}
                             <img src="{{ sonata.icon }}" class="sonata-icon">

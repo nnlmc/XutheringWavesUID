@@ -286,11 +286,6 @@ async def draw_sonata_list_render(version: str = "") -> Optional[bytes]:
             "sonatas": sonatas_render,
         })
 
-    # 设置每个版本组的卡片高度（从1.0开始分配）
-    heights = [230, 250, 280]
-    for idx, group in enumerate(reversed(groups_data)):
-        group["card_height"] = heights[idx] if idx < len(heights) else 300
-
     # 背景
     bg_path = TEXTURE2D_PATH / "bg6.jpg"
     bg_img = Image.open(bg_path).transpose(Image.ROTATE_270)
