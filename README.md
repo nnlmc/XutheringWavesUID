@@ -33,7 +33,7 @@ git clone https://github.com/Loping151/XutheringWavesUID.git
 群友的拓展教程：
 https://blog.ovoii.io/posts/notes/wwbot 
 
-总排行申请、反馈（仅限主人）：群号 387393347（需中转一次，因为被炸过群了）。如完全不使用QQ平台，可发邮件给客服小维 agent@loping151.com（记得写标题）申请计算服务token，要求附带具体使用平台、core信息截图和使用情况和规模说明，支持较少的请求量和用户量，但完全足以小范围使用，一般都欢迎入群。
+总排行申请、反馈（仅限主人）：群号 387393347（需中转一次，因为被炸过群了，这是一个悲伤的故事）。如**完全**不使用QQ平台（如飞书、Discord等），可发邮件给客服小维 agent@loping151.com（记得写标题避免被小维当成垃圾邮件）申请计算token，要求附带具体使用平台、core信息截图和使用情况和规模说明，支持较少的请求量和用户量，但完全足以小范围使用，一般都欢迎入群。
 
 - 为什么需要申请总排行进行使用：
   
@@ -45,7 +45,7 @@ https://blog.ovoii.io/posts/notes/wwbot
 
 - 除了总排行，插件本体功能是否有其他内容需要申请：
 
-    无。评分功能由于是独立的服务，与插件本体无关。
+    无。评分功能由于是独立的服务，需额外计算资源，与插件本体无关。
 
     <img src="./assets/4.png" alt="需要申请的另一个原因：" width="300" />
 
@@ -72,7 +72,7 @@ https://blog.ovoii.io/posts/notes/wwbot
 >
 > **建议安装以下额外依赖：**
 > - `playwright`：用于渲染公告、wiki图等功能。安装后还需执行 `uv run playwright install chromium`
-> - `opencv-python`：用于面板图重复判断、提取面板图、相似度识别等功能
+> - `opencv-python`：用于面板图重复判断、提取面板图、相似度识别、角色头像共鸣链显示等功能
 > - `fonttools`：用于多语言字体 fallback，未安装时日韩文可能显示为方框
 >
 > ```bash
@@ -98,7 +98,7 @@ https://blog.ovoii.io/posts/notes/wwbot
 <img src="./assets/2.png" alt="😅" width="200" />
 <img src="./assets/3.png" alt="😅" width="200" />
 
-辨识方式：总排行含有 国服 字样，显示总人数，具有明显的付费意图。相关名称：knmissy(“岸宝”“莫宁”及同排行其他Bot)，moonshadow。我很遗憾地指出，此人极其同伙是国内开源社区的敌人，为其付费的用户及支持者是其帮凶。
+辨识方式：总排行含有 国服 字样，显示总人数，具有明显的付费意图。相关名称：knmissy(“岸宝”“莫宁”及同排行其他Bot)，moonshadow。我很遗憾地指出，此人及其同伙是国内开源社区的敌人，为其付费的用户及支持者是其帮凶。
 
 ## 支持设备列表：
 win_amd64: python3.10-3.13<br>
@@ -127,3 +127,6 @@ android_termux: python3.10-3.13<br>
   - [小羊早睡不遭罪](https://space.bilibili.com/37331716)
   - [吃我无痕](https://space.bilibili.com/347744)
   - [巡游天国FM](https://space.bilibili.com/444694026)
+ 
+  
+<img src="./assets/footer.png" alt="footer" width="200" />
