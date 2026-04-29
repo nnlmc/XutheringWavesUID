@@ -59,7 +59,11 @@ from ..utils.fonts.waves_fonts import (
     waves_font_44,
     waves_font_58,
 )
-from ..wutheringwaves_abyss.period import get_matrix_period_number
+from ..wutheringwaves_abyss.period import (
+    MATRIX_BASE_TIMESTAMP,
+    get_matrix_period_number,
+    is_matrix_record_expired,
+)
 
 TEXT_PATH = Path(__file__).parent / "texture2d"
 
@@ -520,13 +524,19 @@ async def get_all_matrix_rank_info(
                 async with aiofiles.open(matrix_data_path, mode="r", encoding="utf-8") as f:
                     matrix_raw = json.loads(await f.read())
 
+                record_time = None
                 matrix_data = matrix_raw
                 matched_char_ids = None
                 if isinstance(matrix_raw, dict) and "matrix_data" in matrix_raw:
+                    record_time = matrix_raw.get("record_time", MATRIX_BASE_TIMESTAMP)
                     matrix_data = matrix_raw.get("matrix_data")
                     matched_char_ids = matrix_raw.get("matched_char_ids")
 
                 if not isinstance(matrix_data, dict) or not matrix_data:
+                    continue
+
+                if is_matrix_record_expired(record_time):
+                    logger.debug(f"用户{uid}矩阵数据已过期，跳过")
                     continue
 
                 if not matrix_data.get("isUnlock", False):

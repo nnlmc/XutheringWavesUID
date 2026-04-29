@@ -133,3 +133,39 @@ def get_matrix_period_number(reference_time: Optional[datetime] = None) -> int:
     elapsed_seconds = int((ref_time - MATRIX_BASE_TIME).total_seconds())
     cycles = elapsed_seconds // MATRIX_REFRESH_SECONDS
     return MATRIX_BASE_PERIOD + cycles
+
+
+def get_current_matrix_cycle_start(reference_time: Optional[datetime] = None) -> datetime:
+    """获取当前矩阵周期的开始时间"""
+    now = reference_time or datetime.now(CHINA_TZ)
+    if now <= MATRIX_BASE_TIME:
+        return MATRIX_BASE_TIME
+
+    elapsed_seconds = int((now - MATRIX_BASE_TIME).total_seconds())
+    cycles = elapsed_seconds // MATRIX_REFRESH_SECONDS
+    return MATRIX_BASE_TIME + timedelta(seconds=cycles * MATRIX_REFRESH_SECONDS)
+
+
+def is_matrix_record_expired(
+    record_timestamp: Optional[int],
+    reference_time: Optional[datetime] = None,
+) -> bool:
+    """检查矩阵记录是否已过期"""
+    now = reference_time or datetime.now(CHINA_TZ)
+    if now <= MATRIX_BASE_TIME:
+        return False
+
+    if record_timestamp is None:
+        return True
+
+    try:
+        record_ts = int(record_timestamp)
+    except (TypeError, ValueError):
+        return True
+
+    record_time = datetime.fromtimestamp(record_ts, tz=timezone.utc).astimezone(CHINA_TZ)
+    if record_time < MATRIX_BASE_TIME:
+        return True
+
+    cycle_start = get_current_matrix_cycle_start(now)
+    return record_time < cycle_start
