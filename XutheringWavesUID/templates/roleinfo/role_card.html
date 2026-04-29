@@ -7,6 +7,18 @@
     <style>
         @import url('{{ font_css_url }}');
 
+        :root {
+            --gold: #d4b163;
+            --gold-soft: rgba(212, 177, 99, 0.35);
+            --gold-dim: rgba(212, 177, 99, 0.15);
+            --ink-1: rgba(20, 22, 26, 0.78);
+            --ink-2: rgba(22, 25, 31, 0.82);
+            --line: rgba(255, 255, 255, 0.08);
+            --line-soft: rgba(255, 255, 255, 0.04);
+            --text-main: #f3f3f3;
+            --text-sub: #9aa0aa;
+        }
+
         body {
             margin: 0;
             padding: 0;
@@ -213,124 +225,152 @@
         }
 
         .section-container {
-            background-color: rgba(20, 22, 26, 0.6);
-            backdrop-filter: blur(4px);
-            border-radius: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: var(--ink-1);
+            backdrop-filter: blur(6px);
+            border-radius: 4px;
+            border: 1px solid var(--line);
             padding: 20px 25px;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+            box-shadow: 0 6px 18px -6px rgba(0,0,0,0.5);
         }
 
         .section-header {
             display: flex;
             align-items: center;
-            margin-bottom: 25px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            padding-bottom: 15px;
+            margin-bottom: 18px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--line);
         }
 
         .section-title {
-            font-size: 30px;
+            font-size: 24px;
             font-weight: 800;
             color: #fff;
             text-transform: uppercase;
             letter-spacing: 1.5px;
-            margin-right: 20px;
+            margin-right: 16px;
             text-shadow: 0 2px 8px rgba(0,0,0,0.5);
             font-style: italic;
         }
-        
+
         .section-deco-line {
             flex: 1;
-            height: 2px;
-            background: linear-gradient(90deg, rgba(212, 177, 99, 0.8), transparent);
-            box-shadow: 0 0 5px rgba(212, 177, 99, 0.3);
+            height: 1px;
+            background: linear-gradient(90deg, rgba(212, 177, 99, 0.6), transparent);
         }
 
         .base-info-grid {
             display: grid;
             grid-template-columns: repeat(6, 1fr);
-            gap: 15px;
-            padding: 10px 0;
+            gap: 12px;
+            padding: 4px 0;
         }
 
         .info-item {
             position: relative;
-            background: transparent;
-            padding: 18px 5px;
+            background: linear-gradient(180deg,
+                rgba(255,255,255,0.05) 0%,
+                rgba(255,255,255,0.01) 100%);
+            border: 1px solid var(--line);
+            border-radius: 4px;
+            padding: 20px 8px 18px;
             text-align: center;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             box-sizing: border-box;
-            min-height: 110px;
+            min-height: 124px;
+            gap: 10px;
+            overflow: hidden;
+            box-shadow:
+                inset 0 1px 0 rgba(255,255,255,0.06),
+                0 2px 6px rgba(0,0,0,0.18);
         }
 
-        .info-item::after {
-            content: "";
+        .info-item::before {
+            content: '';
             position: absolute;
-            inset: 0;
-            padding: 1px;
-            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            -webkit-mask-composite: xor;
-            mask-composite: exclude;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 32px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
             pointer-events: none;
         }
 
-        .info-item.highlight::after {
-            background: linear-gradient(to bottom, rgba(212, 177, 99, 0.9), rgba(212, 177, 99, 0));
-        }
-        .info-item.highlight {
-            background: linear-gradient(to bottom, rgba(212, 177, 99, 0.05), transparent);
+        .info-item::after {
+            content: '';
+            position: absolute;
+            bottom: 7px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 18px;
+            height: 1px;
+            background: rgba(255,255,255,0.13);
+            pointer-events: none;
         }
 
-        .info-item:not(.highlight)::after {
-            background: linear-gradient(to top, rgba(212, 177, 99, 0.9), rgba(212, 177, 99, 0));
+        .info-item.highlight {
+            background: linear-gradient(180deg,
+                rgba(212, 177, 99, 0.09) 0%,
+                rgba(212, 177, 99, 0.015) 100%);
+            border-color: rgba(212, 177, 99, 0.24);
+            box-shadow:
+                inset 0 1px 0 rgba(212, 177, 99, 0.22),
+                0 2px 8px rgba(212, 177, 99, 0.05);
         }
-        .info-item:not(.highlight) {
-            background: linear-gradient(to top, rgba(212, 177, 99, 0.05), transparent);
+
+        .info-item.highlight::before {
+            background: linear-gradient(90deg, transparent, rgba(212, 177, 99, 0.55), transparent);
+            width: 40px;
+        }
+
+        .info-item.highlight::after {
+            background: rgba(212, 177, 99, 0.5);
+            width: 22px;
+            box-shadow: 0 0 6px rgba(212, 177, 99, 0.35);
         }
 
         .info-key {
             font-size: 20px;
-            color: #d4b163;
-            opacity: 0.6;
-            margin-bottom: 4px;
+            color: var(--text-sub);
             font-weight: 700;
-            letter-spacing: 1.5px;
+            letter-spacing: 1px;
+            line-height: 1;
+            position: relative;
+            z-index: 1;
         }
 
         .info-value {
             font-family: 'Oswald', sans-serif;
-            font-size: 42px;
+            font-size: 50px;
             font-weight: 700;
             color: #fff;
             line-height: 1;
-            text-shadow: 0 0 10px rgba(212, 177, 99, 0.2);
+            position: relative;
+            z-index: 1;
         }
 
-        .info-item::before {
-            content: "";
-            position: absolute;
-            width: 20px;
-            height: 2px;
-            background: #d4b163;
-            z-index: 3;
+        .info-item.highlight .info-key {
+            color: rgba(212, 177, 99, 0.78);
         }
 
-        .info-item.highlight::before {
-            top: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            box-shadow: 0 0 10px rgba(212, 177, 99, 0.8);
+        .info-item.highlight .info-value {
+            background: linear-gradient(180deg, #fff 55%, var(--gold) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
-        .info-item:not(.highlight)::before {
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            box-shadow: 0 0 10px rgba(212, 177, 99, 0.8);
+        .section-date {
+            font-family: 'Oswald', sans-serif;
+            color: #8a8e96;
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            margin-left: 16px;
+            padding: 2px 10px;
+            border-left: 1px solid rgba(212, 177, 99, 0.35);
         }
 
         .role-grid {
@@ -523,12 +563,12 @@
                 <div class="section-title">数据概览</div>
                 <div class="section-deco-line"></div>
                 {% if current_date %}
-                <div style="font-family: 'Oswald'; color: #888; font-size: 18px; font-weight: bold; margin-left: 15px;">{{ current_date }}</div>
+                <div class="section-date">{{ current_date }}</div>
                 {% endif %}
             </div>
             <div class="base-info-grid">
                 {% for item in base_info_list %}
-                <div class="info-item {% if item.highlight %}highlight{% endif %}">
+                <div class="info-item{% if item.highlight %} highlight{% endif %}">
                     <div class="info-key">{{ item.key }}</div>
                     <div class="info-value">{{ item.value }}</div>
                 </div>

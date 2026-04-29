@@ -4,6 +4,7 @@ from gsuid_core.logger import logger
 from gsuid_core.models import Event
 
 from ..utils.char_info_utils import PATTERN, parse_skill_levels
+from ..utils.name_resolve import resolve_char
 from ..wutheringwaves_develop.develop import calc_develop_cost
 
 role_develop = SV("waves角色培养")
@@ -15,7 +16,26 @@ role_develop = SV("waves角色培养")
 )
 async def calc_develop(bot: Bot, ev: Event):
     develop_list_str = ev.regex_dict.get("develop_list", "")
-    develop_list = develop_list_str.split()
+    develop_list_raw = develop_list_str.split()
+
+    develop_list = []
+    fuzzy_matches = []
+    for raw in develop_list_raw:
+        res = resolve_char(raw)
+        if not res.ok:
+            continue
+        develop_list.append(res.matched)
+        if res.fuzzy_used:
+            fuzzy_matches.append(res.matched)
+
+    if not develop_list:
+        return await bot.send("[鸣潮] 未找到养成角色, 请检查输入是否正确！")
+
+    if fuzzy_matches:
+        from ..wutheringwaves_config import PREFIX
+        full_cmd = f"{PREFIX}{' '.join(develop_list)} 养成"
+        await bot.send(f"[鸣潮] 你可能想输入【{full_cmd}】, 已按该指令执行")
+
     logger.info(f"养成列表: {develop_list}")
 
     # 解析技能等级参数

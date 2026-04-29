@@ -133,6 +133,7 @@ async def calculate_score(uid: str, ck: str) -> Optional[Dict]:
 
     # 计算成就积分（上限1600分）
     achievement_count = account_info.achievementCount or 0
+    achievement_star = account_info.achievementStar or 0
     achievement_score_raw = achievement_count * 2
     achievement_score = min(achievement_score_raw, 1600)
 
@@ -159,6 +160,7 @@ async def calculate_score(uid: str, ck: str) -> Optional[Dict]:
         "char_weapon_total_raw": char_weapon_total_raw,
         "char_weapon_total_capped": char_weapon_total_capped,
         "achievement_count": achievement_count,
+        "achievement_star": achievement_star,
         "achievement_score": achievement_score,
         "achievement_score_raw": achievement_score_raw,
         "active_days": active_days,
@@ -214,6 +216,7 @@ async def draw_reward_img(uid: str, ck: str, ev: Event):
         "char_weapon_total_raw": score_data["char_weapon_total_raw"],
         "char_weapon_total_capped": score_data["char_weapon_total_capped"],
         "achievement_count": score_data["achievement_count"],
+        "achievement_star": score_data["achievement_star"],
         "achievement_score": score_data["achievement_score"],
         "achievement_score_raw": score_data["achievement_score_raw"],
         "active_days": score_data["active_days"],

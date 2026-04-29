@@ -1,6 +1,7 @@
 from gsuid_core.sv import SV
 from gsuid_core.bot import Bot
 from gsuid_core.models import Event
+from gsuid_core.segment import MessageSegment
 
 from .guide import get_guide
 from .draw_char import draw_char_wiki
@@ -8,7 +9,9 @@ from .draw_echo import draw_wiki_echo
 from .draw_list import draw_sonata_list, draw_weapon_list
 from .draw_tower import draw_slash_challenge_img, draw_tower_challenge_img, draw_matrix_challenge_img
 from .draw_weapon import draw_wiki_weapon
-from ..utils.name_convert import char_name_to_char_id
+from ..utils import name_convert
+from ..utils.name_convert import char_name_to_char_id, ensure_data_loaded
+from ..utils.fuzzy_match import fuzzy_suggest, fuzzy_suggest_multi
 from ..utils.char_info_utils import PATTERN
 from ..wutheringwaves_abyss.period import (
     get_tower_period_number,
@@ -33,10 +36,6 @@ async def send_waves_wiki(bot: Bot, ev: Event):
     at_sender = True if ev.group_id else False
     if wiki_type in ("共鸣链", "共鳴鏈", "gml", "命座", "天赋", "天賦", "技能", "jn", "回路", "操作", "机制", "機制", "jz"):
         char_name = wiki_name
-        char_id = char_name_to_char_id(char_name)
-        if not char_id:
-            msg = f"[鸣潮] 未找到指定角色, 请先检查输入是否正确！\n"
-            return await bot.send(msg, at_sender)
 
         if wiki_type in ("技能", "天赋", "天賦", "jn"):
             query_role_type = "技能"
@@ -47,11 +46,32 @@ async def send_waves_wiki(bot: Bot, ev: Event):
         else:
             query_role_type = wiki_type
 
-        img = await draw_char_wiki(char_id, query_role_type)
-        if isinstance(img, str):
-            msg = f"[鸣潮] 未找到指定角色, 请先检查输入是否正确！\n"
-            return await bot.send(msg, at_sender)
-        await bot.send(img)
+        char_id = char_name_to_char_id(char_name)
+        if char_id:
+            img = await draw_char_wiki(char_id, query_role_type)
+            if not isinstance(img, str):
+                return await bot.send(img)
+
+        ensure_data_loaded()
+        suggestions = fuzzy_suggest(char_name, name_convert.char_alias_data, top_n=3)
+        for cand_name, _ in suggestions:
+            cand_id = char_name_to_char_id(cand_name)
+            if not cand_id:
+                continue
+            cand_img = await draw_char_wiki(cand_id, query_role_type)
+            if isinstance(cand_img, str):
+                continue
+            from ..wutheringwaves_config import PREFIX
+            cmd = f"{PREFIX}{cand_name}{query_role_type}"
+            msg = f"[鸣潮] 你可能想输入【{cmd}】, 已按该指令执行:"
+            return await bot.send([msg, MessageSegment.image(cand_img)], at_sender=at_sender)
+
+        if suggestions:
+            names = "、".join(n for n, _ in suggestions)
+            msg = f"[鸣潮] 未找到指定角色。\n你可能想找: {names}"
+        else:
+            msg = "[鸣潮] 未找到指定角色, 请先检查输入是否正确！"
+        return await bot.send(msg, at_sender)
     else:
         if wiki_type in ("专武", "專武"):
             wiki_name = wiki_name + "专武"
@@ -61,11 +81,33 @@ async def send_waves_wiki(bot: Bot, ev: Event):
             await bot.logger.info(f"[鸣潮] 开始获取{echo_name}wiki")
             img = await draw_wiki_echo(echo_name)
 
-        if isinstance(img, str) or not img:
-            msg = f"[鸣潮] wiki未找到指定内容, 请先检查输入是否正确！\n"
-            return await bot.send(msg, at_sender)
+        if not (isinstance(img, str) or not img):
+            return await bot.send(img)
 
-        await bot.send(img)
+        ensure_data_loaded()
+        suggestions = fuzzy_suggest_multi(
+            wiki_name,
+            [("武器", name_convert.weapon_alias_data), ("共鸣", name_convert.echo_alias_data)],
+            top_n=3,
+        )
+        for label, cand_name, _ in suggestions:
+            if label == "武器":
+                cand_img = await draw_wiki_weapon(cand_name)
+            else:
+                cand_img = await draw_wiki_echo(cand_name)
+            if isinstance(cand_img, str) or not cand_img:
+                continue
+            from ..wutheringwaves_config import PREFIX
+            cmd = f"{PREFIX}{cand_name}介绍"
+            msg = f"[鸣潮] 你可能想输入【{cmd}】, 已按该指令执行:"
+            return await bot.send([msg, MessageSegment.image(cand_img)], at_sender=at_sender)
+
+        if suggestions:
+            names = "、".join(n for _, n, _ in suggestions)
+            msg = f"[鸣潮] wiki未找到指定内容。\n你可能想找: {names}"
+        else:
+            msg = "[鸣潮] wiki未找到指定内容, 请先检查输入是否正确！"
+        return await bot.send(msg, at_sender)
 
 
 @sv_waves_guide.on_regex(rf"^(?P<char>{PATTERN})(?:攻略|gl)$", block=True)

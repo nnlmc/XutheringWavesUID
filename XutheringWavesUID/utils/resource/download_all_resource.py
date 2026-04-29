@@ -71,7 +71,7 @@ async def check_speed(plugin_name):
         return size / elapsed
 
     async def _race_speedtest(timeout_seconds: float):
-        deadline = time.perf_counter() + timeout_seconds
+        deadline = time.perf_counter() + max(0.0, timeout_seconds - 0.1)
         timeout = httpx.Timeout(timeout_seconds)
         async with httpx.AsyncClient(timeout=timeout) as client:
             task_meta: dict[asyncio.Task, tuple[str, str]] = {}

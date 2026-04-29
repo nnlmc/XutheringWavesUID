@@ -70,15 +70,21 @@ https://blog.ovoii.io/posts/notes/wwbot
 >
 > **建议安装以下额外依赖：**
 > - `playwright`：用于渲染公告、wiki图等功能。安装后还需执行 `uv run playwright install chromium`
-> - `opencv-python`：用于面板图重复判断、提取面板图、相似度识别、角色头像共鸣链显示等功能
+> - `opencv-python`：用于面板图重复判断、提取面板图、相似度识别、矩阵显示共鸣链等功能
 > - `fonttools`：用于多语言字体 fallback，未安装时日韩文可能显示为方框
+> - `pypinyin`：用于模糊建议（含打错字、顺序颠倒等容错）
 >
 > ```bash
 > # Linux/Mac
-> source .venv/bin/activate && uv pip install playwright opencv-python fonttools && uv run playwright install chromium
+> source .venv/bin/activate && uv pip install playwright opencv-python fonttools pypinyin && uv run playwright install chromium
 > # Windows
-> .venv\Scripts\activate; uv pip install playwright opencv-python fonttools; uv run playwright install chromium
+> .venv\Scripts\activate; uv pip install playwright opencv-python fonttools pypinyin; uv run playwright install chromium
 > ```
+>
+> **如有条件，建议为系统补充以下字体，避免官方公告使用特殊字符时渲染异常：**
+> - emoji 字体：如 `Noto Color Emoji`、`Apple Color Emoji`、`Segoe UI Emoji`
+> - 颜文字 / 符号字体：如 `Symbola`、`Noto Sans Symbols2`
+> - 汉字字体：如 `Noto Sans CJK SC/TC/JP/KR`、`Source Han Sans` 等覆盖中日韩的字体
 
 ## 丨其他
 
@@ -90,13 +96,7 @@ https://blog.ovoii.io/posts/notes/wwbot
 
 + [GPL-3.0 License](https://github.com/Loping151/XutheringWavesUID/blob/main/LICENSE)
 
-本仓库仅允许正常、可沟通、具有良知的个体部署： https://ngabbs.com/read.php?tid=45654606 以下bot行为造成的任何影响与本仓库及开发者无关。
-
-<img src="./assets/1.png" alt="😅" width="200" />
-<img src="./assets/2.png" alt="😅" width="200" />
-<img src="./assets/3.png" alt="😅" width="200" />
-
-辨识方式：总排行含有 国服 字样，显示总人数，具有明显的付费意图。相关名称：knmissy(“岸宝””莫宁”及同排行其他Bot)，moonshadow。由于对方强烈要求，现给出解释：[link](./assets/0428.md)。
+本仓库仅允许正常、可沟通、具有良知的个体部署，原因：https://ngabbs.com/read.php?tid=45654606 以及：[link](./assets/0428.md)。
 
 ## 支持设备列表：
 win_amd64: python3.10-3.13<br>

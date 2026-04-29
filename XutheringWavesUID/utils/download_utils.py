@@ -71,12 +71,9 @@ def copy_if_different(src, dst, name, soft=False):
         return False
 
     src_path = Path(src)
-    src_total_files = count_files(src_path, "*")
     dst_path = Path(dst)
-    if dst_path.exists():
-        dst_py_count = count_files(dst_path, "*.py")
-        if src_total_files and dst_py_count >= src_total_files - 1:
-            return False
+    if dst_path.exists() and count_files(dst_path, "*.py") > 0:
+        return False
 
     needs_update = False
 

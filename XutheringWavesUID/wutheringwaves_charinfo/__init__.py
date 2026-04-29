@@ -13,6 +13,7 @@ from ..utils.error_reply import WAVES_CODE_103
 from ..utils.at_help import ruser_id, is_valid_at
 from ..utils.resource.constant import SPECIAL_CHAR
 from ..utils.name_convert import char_name_to_char_id
+from ..utils.name_resolve import resolve_char
 from .draw_char_card import draw_char_score_img, draw_char_detail_img
 from .upload_card import (
     delete_custom_card,
@@ -227,12 +228,17 @@ async def send_card_info(bot: Bot, ev: Event):
 )
 async def send_one_char_detail_msg(bot: Bot, ev: Event):
     logger.debug(f"[鸣潮] [角色面板] RAW_TEXT: {ev.raw_text}")
-    char = ev.regex_dict.get("char")
-    if not char:
-        return
+    res = resolve_char(ev.regex_dict.get("char"))
+    if not res.ok:
+        return await bot.send(res.fail_msg("[鸣潮] 角色无法找到"))
+    char = res.matched
     char_id = char_name_to_char_id(char)
     if not char_id or len(char_id) != 4:
-        return await bot.send(f"[鸣潮] 角色无法找到, 请先检查输入是否正确！")
+        return await bot.send(res.fail_msg("[鸣潮] 角色无法找到"))
+    from ..wutheringwaves_config import PREFIX
+    tip = res.tip_text(f"{PREFIX}刷新{char}面板")
+    if tip:
+        await bot.send(tip)
     refresh_type = [char_id]
     if char_id in SPECIAL_CHAR:
         refresh_type = SPECIAL_CHAR.copy()[char_id]
@@ -292,17 +298,57 @@ async def send_one_char_detail_msg(bot: Bot, ev: Event):
 async def send_char_detail_msg(bot: Bot, ev: Event):
     char = ev.text.strip(" ")
     logger.debug(f"[鸣潮] [角色面板] CHAR: {char}")
+    if not char:
+        return
     user_id = ruser_id(ev)
     uid = await WavesBind.get_uid_by_game(user_id, ev.bot_id)
     if not uid:
         return await bot.send(error_reply(WAVES_CODE_103))
     logger.debug(f"[鸣潮] [角色面板] UID: {uid}")
+
+    res = resolve_char(char)
+    if not res.ok:
+        return await bot.send(res.fail_msg())
+    char = res.matched
+
+    im = await draw_char_detail_img(ev, uid, char, user_id)
+    if isinstance(im, str):
+        return await bot.send(im)
+    if isinstance(im, bytes):
+        from ..wutheringwaves_config import PREFIX
+        return await bot.send(res.wrap(im, f"{PREFIX}角色面板{char}"))
+    
+@waves_new_char_detail.on_regex(
+    rf"^(?P<waves_id>\d{{9}})?(?P<char>{PATTERN})(?P<query_type>练度|声骸)$",
+    block=True,
+)
+async def send_char_detail_msg2_typo(bot: Bot, ev: Event):
+    waves_id = ev.regex_dict.get("waves_id")
+    char = ev.regex_dict.get("char")
+
+    if waves_id and len(waves_id) != 9:
+        return
     if not char:
         return
 
-    im = await draw_char_detail_img(ev, uid, char, user_id)
-    if isinstance(im, str) or isinstance(im, bytes):
-        return await bot.send(im)
+    at_sender = True if ev.group_id else False
+    res = resolve_char(char)
+    if not res.ok:
+        return await bot.send(res.fail_msg(), at_sender)
+    char = res.matched
+
+    user_id = ruser_id(ev)
+    uid = await WavesBind.get_uid_by_game(user_id, ev.bot_id)
+    if not uid:
+        return await bot.send(error_reply(WAVES_CODE_103))
+    im = await draw_char_detail_img(ev, uid, char, user_id, waves_id)
+    if isinstance(im, str):
+        return await bot.send(im, False)
+    if isinstance(im, bytes):
+        from ..wutheringwaves_config import PREFIX
+        from gsuid_core.segment import MessageSegment
+        tip = f"[鸣潮] 你可能想输入【{PREFIX}{char}面板】, 已按该指令执行:"
+        return await bot.send([tip, MessageSegment.image(im)], False)
 
 
 @waves_new_char_detail.on_regex(
@@ -328,18 +374,31 @@ async def send_char_detail_msg2(bot: Bot, ev: Event):
         is_limit_query = True
         char = char.replace("极限", "").replace("limit", "")
 
-    if damage:
-        char = f"{char}伤害{damage}"
     if not char:
         return
+
+    res = resolve_char(char)
+    if not res.ok:
+        return await bot.send(res.fail_msg())
+    matched = res.matched
+
+    from ..wutheringwaves_config import PREFIX
+    body = f"极限{matched}" if is_limit_query else matched
+    base = f"伤害{damage}" if damage else "面板"
+    canonical_cmd = f"{PREFIX}{body}{base}{'pk' if is_pk else ''}{change_list_regex or ''}"
+
+    char = matched
+    if damage:
+        char = f"{char}伤害{damage}"
     logger.debug(f"[鸣潮] [角色面板] CHAR: {char} {ev.regex_dict}")
 
     if is_limit_query:
         im = await draw_char_detail_img(ev, "1", char, ev.user_id, is_limit_query=is_limit_query)
-        if isinstance(im, str) or isinstance(im, bytes):
+        if isinstance(im, str):
             return await bot.send(im)
-        else:
-            return
+        if isinstance(im, bytes):
+            return await bot.send(res.wrap(im, canonical_cmd))
+        return
 
     at_sender = True if ev.group_id else False
     if is_pk:
@@ -385,7 +444,7 @@ async def send_char_detail_msg2(bot: Bot, ev: Event):
         new_im.paste(im1, (0, 0))
         new_im.paste(im2, (im1.size[0], 0))
         new_im = await convert_img(new_im)
-        return await bot.send(new_im)
+        return await bot.send(res.wrap(new_im, canonical_cmd))
     else:
         user_id = ruser_id(ev)
         uid = await WavesBind.get_uid_by_game(user_id, ev.bot_id)
@@ -393,8 +452,10 @@ async def send_char_detail_msg2(bot: Bot, ev: Event):
             return await bot.send(error_reply(WAVES_CODE_103))
         im = await draw_char_detail_img(ev, uid, char, user_id, waves_id, change_list_regex=change_list_regex)
         at_sender = False
-        if isinstance(im, str) or isinstance(im, bytes):
+        if isinstance(im, str):
             return await bot.send(im, at_sender)
+        if isinstance(im, bytes):
+            return await bot.send(res.wrap(im, canonical_cmd), at_sender)
 
 
 @waves_new_char_detail.on_regex(rf"^(?P<waves_id>\d{{9}})?(?P<char>{PATTERN})(权重|qz)$", block=True)
@@ -413,12 +474,22 @@ async def send_char_detail_msg2_weight(bot: Bot, ev: Event):
     if not char:
         return
 
+    res = resolve_char(char)
+    if not res.ok:
+        return await bot.send(res.fail_msg())
+    char = res.matched
+
+    from ..wutheringwaves_config import PREFIX
+    body = f"极限{char}" if is_limit_query else char
+    canonical_cmd = f"{PREFIX}{body}权重"
+
     if is_limit_query:
         im = await draw_char_score_img(ev, "1", char, ev.user_id, is_limit_query=is_limit_query)
-        if isinstance(im, str) or isinstance(im, bytes):
+        if isinstance(im, str):
             return await bot.send(im)
-        else:
-            return
+        if isinstance(im, bytes):
+            return await bot.send(res.wrap(im, canonical_cmd))
+        return
 
     user_id = ruser_id(ev)
     uid = await WavesBind.get_uid_by_game(user_id, ev.bot_id)
@@ -429,5 +500,7 @@ async def send_char_detail_msg2_weight(bot: Bot, ev: Event):
     at_sender = False
     if isinstance(im, str) and ev.group_id:
         at_sender = True
-    if isinstance(im, str) or isinstance(im, bytes):
+    if isinstance(im, str):
         return await bot.send(im, at_sender)
+    if isinstance(im, bytes):
+        return await bot.send(res.wrap(im, canonical_cmd), at_sender)

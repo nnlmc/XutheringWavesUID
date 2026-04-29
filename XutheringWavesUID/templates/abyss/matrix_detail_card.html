@@ -181,6 +181,33 @@
             line-height: 1;
         }
 
+        .score-divider {
+            position: relative;
+            height: 1px;
+            margin: 2px 0;
+            background: linear-gradient(90deg,
+                transparent,
+                rgba(212, 177, 99, 0.45) 18%,
+                rgba(212, 177, 99, 0.45) 82%,
+                transparent);
+        }
+
+        .score-divider::before,
+        .score-divider::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 4px;
+            height: 4px;
+            background: rgba(212, 177, 99, 0.7);
+            border-radius: 50%;
+            transform: translateY(-50%);
+            box-shadow: 0 0 6px rgba(212, 177, 99, 0.5);
+        }
+
+        .score-divider::before { left: 14%; }
+        .score-divider::after { right: 14%; }
+
         .progress-text {
             display: flex; align-items: center; justify-content: space-between;
             font-size: 24px; font-weight: 600; color: #fff;
@@ -477,6 +504,7 @@
                         <span>累计积分</span>
                         <span class="score-num {{ mode.score_color }}" style="margin-left:auto;">{{ mode.score }}</span>
                     </div>
+                    <div class="score-divider"></div>
                     <div class="progress-text">
                         <span>挑战进度</span>
                         <span>{{ mode.pass_boss }}/{{ mode.boss_count }}</span>
