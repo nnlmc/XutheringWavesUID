@@ -215,12 +215,13 @@ async def save_card_info(
     # 保存charListData.json（角色评分缓存）
     waves_char_rank = await get_waves_char_rank(uid, save_data, True)
 
-    # 计算本次提升最大的角色: 必须有旧分、不在漂泊者列表、本次确有变更、新分>125
+    # 候选门槛: 不在漂泊者列表、本次确有变更、有旧分、新分>140、delta∈(3,30)
+    # 选取: 优先跨越档位 (210 > 195 > 175) 的角色; 同档位中挑 new 最高
     top_improver = None
     if waves_char_rank and refresh_update:
         from ..wutheringwaves_rank.draw_rank_list_card import load_char_list_data
         old_scores = await load_char_list_data(uid) or {}
-        best_delta = 0.0
+        candidates = []
         for cr in waves_char_rank:
             if cr.roleId in SPECIAL_CHAR_INT_ALL:
                 continue
@@ -234,20 +235,27 @@ async def save_card_info(
                 new = float(cr.score or 0)
             except (TypeError, ValueError):
                 continue
-            if old <= 0 or new <= 125:
+            if old <= 0 or new <= 140:
                 continue
             delta = new - old
-            if delta > best_delta:
-                best_delta = delta
-                top_improver = {
-                    "roleId": cr.roleId,
-                    "roleName": cr.roleName,
-                    "old": old,
-                    "new": new,
-                    "delta": delta,
-                }
-        if top_improver and not (3 < top_improver["delta"] < 50):
-            top_improver = None
+            if not (3 < delta < 30):
+                continue
+            candidates.append({
+                "roleId": cr.roleId,
+                "roleName": cr.roleName,
+                "old": old,
+                "new": new,
+                "delta": delta,
+            })
+
+        TIER_THRESHOLDS = (210.0, 195.0, 175.0)
+        def _priority(c):
+            for idx, tier in enumerate(TIER_THRESHOLDS):
+                if c["new"] >= tier > c["old"]:
+                    return (len(TIER_THRESHOLDS) - idx, c["new"])
+            return (0, c["new"])
+        if candidates:
+            top_improver = max(candidates, key=_priority)
 
     await save_char_list_cache(uid, waves_char_rank)
 
