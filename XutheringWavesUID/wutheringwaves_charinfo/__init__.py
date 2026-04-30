@@ -4,6 +4,7 @@ from gsuid_core.sv import SV
 from gsuid_core.bot import Bot
 from gsuid_core.models import Event
 from gsuid_core.logger import logger
+from gsuid_core.segment import MessageSegment
 from gsuid_core.utils.image.convert import convert_img
 
 from ..utils.hint import error_reply
@@ -14,6 +15,7 @@ from ..utils.at_help import ruser_id, is_valid_at
 from ..utils.resource.constant import SPECIAL_CHAR
 from ..utils.name_convert import char_name_to_char_id
 from ..utils.name_resolve import resolve_char
+from ..wutheringwaves_config import PREFIX, WutheringWavesConfig
 from .draw_char_card import draw_char_score_img, draw_char_detail_img
 from .upload_card import (
     delete_custom_card,
@@ -29,6 +31,19 @@ from .card_utils import (
     send_custom_card_single_by_id,
     send_repeated_custom_cards,
 )
+
+
+def _space_hint() -> str:
+    return f"[鸣潮] 尝试去掉{PREFIX}后的空格重试"
+
+
+def _with_tip(payload, tip):
+    """fuzzy 命中时在 payload 前补 tip; 否则原样返回。payload 可为单元素或列表。"""
+    if not tip:
+        return payload
+    if isinstance(payload, list):
+        return [tip, *payload]
+    return [tip, payload]
 
 waves_upload_char = SV("waves上传面板图", priority=3, pm=1)
 waves_char_card_single = SV("waves查看面板图", priority=3)
@@ -223,11 +238,13 @@ async def send_card_info(bot: Bot, ev: Event):
 
 
 @waves_new_get_one_char_info.on_regex(
-    rf"^(?P<is_refresh>刷新|更新|upd)(?P<char>{PATTERN})(?P<query_type>面板|面版|面包|🍞|mb)$",
+    rf"^(?P<lead_space>\s+)?(?P<is_refresh>刷新|更新|upd)(?P<mid_space>\s+)?(?P<char>{PATTERN})(?P<query_type>面板|面版|面包|🍞|mb)$",
     block=True,
 )
 async def send_one_char_detail_msg(bot: Bot, ev: Event):
     logger.debug(f"[鸣潮] [角色面板] RAW_TEXT: {ev.raw_text}")
+    if ev.regex_dict.get("lead_space") or ev.regex_dict.get("mid_space"):
+        return await bot.send(_space_hint())
     res = resolve_char(ev.regex_dict.get("char"))
     if not res.ok:
         return await bot.send(res.fail_msg("[鸣潮] 角色无法找到"))
@@ -235,16 +252,10 @@ async def send_one_char_detail_msg(bot: Bot, ev: Event):
     char_id = char_name_to_char_id(char)
     if not char_id or len(char_id) != 4:
         return await bot.send(res.fail_msg("[鸣潮] 角色无法找到"))
-    from ..wutheringwaves_config import PREFIX
     tip = res.tip_text(f"{PREFIX}刷新{char}面板")
-    if tip:
-        await bot.send(tip)
-    refresh_type = [char_id]
-    if char_id in SPECIAL_CHAR:
-        refresh_type = SPECIAL_CHAR.copy()[char_id]
+    refresh_type = SPECIAL_CHAR.copy()[char_id] if char_id in SPECIAL_CHAR else [char_id]
 
     user_id = ruser_id(ev)
-
     uid = await WavesBind.get_uid_by_game(user_id, ev.bot_id)
     if not uid:
         return await bot.send(error_reply(WAVES_CODE_103))
@@ -253,45 +264,42 @@ async def send_one_char_detail_msg(bot: Bot, ev: Event):
 
     buttons = []
     msg, num_updated = await draw_refresh_char_detail_img(bot, ev, user_id, uid, buttons, refresh_type)
-    if num_updated > 0: # 必定有图片
-        from ..wutheringwaves_config import WutheringWavesConfig
-        refresh_behavior = WutheringWavesConfig.get_config("RefreshSingleCharBehavior").data
 
-        if refresh_behavior == "refresh_only":
-            # 仅刷新，不发送
-            await bot.send_option(msg, buttons)
-        elif refresh_behavior == "refresh_and_send_separately":
-            # 刷新并分别发送
-            await bot.send(msg)
-            im = await draw_char_detail_img(ev, uid, char, user_id, None)
-            await bot.send(im)
-        elif refresh_behavior == "concatenate":
-            # 拼接为一张图发送
-            im = await draw_char_detail_img(ev, uid, char, user_id, None, need_convert_img=False)
-            if isinstance(im, str):
-                await bot.send(msg)
-                await bot.send(im)
-            elif isinstance(im, Image.Image):
-                from io import BytesIO
-                refresh_img = Image.open(BytesIO(msg))
-                total_width = max(refresh_img.width, im.width)
-                total_height = refresh_img.height + im.height
-                new_im = Image.new("RGBA", (total_width, total_height))
-                new_im.paste(refresh_img, ((total_width - refresh_img.width) // 2, 0))
-                new_im.paste(im, ((total_width - im.width) // 2, refresh_img.height))
-                new_im = await convert_img(new_im)
-                await bot.send(new_im)
-            else:
-                await bot.send_option(msg, buttons)
-        else:  # refresh_and_send 或默认行为
-            # 刷新并合并发送
-            if not uid:
-                return await bot.send(error_reply(WAVES_CODE_103))
-            im = await draw_char_detail_img(ev, uid, char, user_id, None)
-            await bot.send([msg, im])
+    if num_updated <= 0:
+        if isinstance(msg, str) or isinstance(msg, bytes):
+            seg = MessageSegment.image(msg) if isinstance(msg, bytes) else msg
+            await bot.send_option(_with_tip(seg, tip), buttons)
+        return
 
-    elif isinstance(msg, str) or isinstance(msg, bytes):
-        await bot.send_option(msg, buttons)
+    refresh_behavior = WutheringWavesConfig.get_config("RefreshSingleCharBehavior").data
+    refresh_seg = MessageSegment.image(msg)
+
+    if refresh_behavior == "refresh_only":
+        return await bot.send_option(_with_tip(refresh_seg, tip), buttons)
+
+    if refresh_behavior == "refresh_and_send_separately":
+        # 唯一拆条发送的模式: tip 跟刷新结果同条, 面板图单独再发
+        await bot.send(_with_tip(refresh_seg, tip))
+        im = await draw_char_detail_img(ev, uid, char, user_id, None)
+        return await bot.send(im)
+
+    if refresh_behavior == "concatenate":
+        im = await draw_char_detail_img(ev, uid, char, user_id, None, need_convert_img=False)
+        if isinstance(im, str):
+            return await bot.send(_with_tip([refresh_seg, im], tip))
+        if isinstance(im, Image.Image):
+            from io import BytesIO
+            refresh_img = Image.open(BytesIO(msg))
+            total_width = max(refresh_img.width, im.width)
+            new_im = Image.new("RGBA", (total_width, refresh_img.height + im.height))
+            new_im.paste(refresh_img, ((total_width - refresh_img.width) // 2, 0))
+            new_im.paste(im, ((total_width - im.width) // 2, refresh_img.height))
+            return await bot.send(_with_tip(MessageSegment.image(await convert_img(new_im)), tip))
+        return await bot.send_option(_with_tip(refresh_seg, tip), buttons)
+
+    # refresh_and_send (default)
+    im = await draw_char_detail_img(ev, uid, char, user_id, None)
+    await bot.send(_with_tip([refresh_seg, MessageSegment.image(im)], tip))
 
 
 @waves_char_detail.on_prefix(("角色面板", "查询"))
@@ -310,7 +318,6 @@ async def send_char_detail_msg(bot: Bot, ev: Event):
     if not res.ok:
         return await bot.send(res.fail_msg())
     char = res.matched
-    from ..wutheringwaves_config import PREFIX
     canonical_cmd = f"{PREFIX}角色面板{char}"
 
     im = await draw_char_detail_img(ev, uid, char, user_id)
@@ -318,10 +325,11 @@ async def send_char_detail_msg(bot: Bot, ev: Event):
         return await bot.send(res.with_tip(im, canonical_cmd))
     if isinstance(im, bytes):
         return await bot.send(res.wrap(im, canonical_cmd))
-    
+
+
 @waves_new_char_detail.on_regex(
     rf"^(?P<waves_id>\d{{9}})?(?P<char>{PATTERN})(?P<query_type>练度|声骸)$",
-    block=True,
+    block=False,
 )
 async def send_char_detail_msg2_typo(bot: Bot, ev: Event):
     waves_id = ev.regex_dict.get("waves_id")
@@ -333,38 +341,46 @@ async def send_char_detail_msg2_typo(bot: Bot, ev: Event):
     if not char:
         return
 
-    # 排除已有指令: 刷新练度 / 我的声骸 等
+    # 排除单独存在不算 typo 的输入: 刷新练度 / 我的声骸 等
     if query_type == "练度" and char in ("刷新", "更新", "upd"):
         return
     if query_type == "声骸" and char in ("我的",):
         return
 
-    at_sender = True if ev.group_id else False
+    # char 带"刷新/更新/upd"前缀: 用户实际想刷新单角色, 转到刷新逻辑
+    for kw in ("刷新", "更新", "upd"):
+        if char.startswith(kw) and len(char) > len(kw):
+            ev.regex_dict["is_refresh"] = kw
+            ev.regex_dict["char"] = char[len(kw):]
+            ev.regex_dict["query_type"] = "面板"
+            return await send_one_char_detail_msg(bot, ev)
+
     res = resolve_char(char)
     if not res.ok:
-        return await bot.send(res.fail_msg(), at_sender)
+        return await bot.send(res.fail_msg(), True if ev.group_id else False)
     char = res.matched
 
     user_id = ruser_id(ev)
     uid = await WavesBind.get_uid_by_game(user_id, ev.bot_id)
     if not uid:
         return await bot.send(error_reply(WAVES_CODE_103))
-    from ..wutheringwaves_config import PREFIX
     canonical_cmd = f"{PREFIX}{char}面板"
     im = await draw_char_detail_img(ev, uid, char, user_id, waves_id)
+    # typo 路径: 即使精确命中也强制告知用户已按面板查询
     tip = res.tip_text(canonical_cmd) or f"[鸣潮] 已按【{canonical_cmd}】查询:"
     if isinstance(im, str):
         return await bot.send(f"{tip}\n{im}", False)
     if isinstance(im, bytes):
-        from gsuid_core.segment import MessageSegment
         return await bot.send([tip, MessageSegment.image(im)], False)
 
 
 @waves_new_char_detail.on_regex(
-    rf"(?P<waves_id>\d{{9}})?(?P<char>{PATTERN})(?P<query_type>面板|面版|面包|🍞|mb|伤害(?P<damage>(\d+)?))(?P<is_pk>pk|对比|PK|比|比较)?(\s*)?(?P<change_list>((换[^换]*)*)?)",
+    rf"^(?P<lead_space>\s+)?(?P<waves_id>\d{{9}})?(?P<char>{PATTERN})(?P<query_type>面板|面版|面包|🍞|mb|伤害(?P<damage>(\d+)?))(?P<is_pk>pk|对比|PK|比|比较)?(\s*)?(?P<change_list>((换[^换]*)*)?)",
     block=True,
 )
 async def send_char_detail_msg2(bot: Bot, ev: Event):
+    if ev.regex_dict.get("lead_space"):
+        return await bot.send(_space_hint())
     waves_id = ev.regex_dict.get("waves_id")
     char = ev.regex_dict.get("char")
     damage = ev.regex_dict.get("damage")
@@ -391,7 +407,6 @@ async def send_char_detail_msg2(bot: Bot, ev: Event):
         return await bot.send(res.fail_msg())
     matched = res.matched
 
-    from ..wutheringwaves_config import PREFIX
     body = f"极限{matched}" if is_limit_query else matched
     base = f"伤害{damage}" if damage else "面板"
     canonical_cmd = f"{PREFIX}{body}{base}{'pk' if is_pk else ''}{change_list_regex or ''}"
@@ -488,7 +503,6 @@ async def send_char_detail_msg2_weight(bot: Bot, ev: Event):
         return await bot.send(res.fail_msg())
     char = res.matched
 
-    from ..wutheringwaves_config import PREFIX
     body = f"极限{char}" if is_limit_query else char
     canonical_cmd = f"{PREFIX}{body}权重"
 

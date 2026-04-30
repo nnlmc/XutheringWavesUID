@@ -8,7 +8,7 @@ from .draw_echo_list import get_draw_list
 from ..utils.error_reply import WAVES_CODE_103
 from ..utils.database.models import WavesBind
 
-sv_waves_echo_list = SV("声骸展示")
+sv_waves_echo_list = SV("声骸展示", priority=3)
 
 
 @sv_waves_echo_list.on_regex(

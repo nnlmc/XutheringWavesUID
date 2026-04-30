@@ -10,7 +10,7 @@ from .draw_char_list import draw_char_list_img
 from ..utils.error_reply import WAVES_CODE_103
 from ..utils.database.models import WavesBind
 
-sv_waves_char_list = SV("ww角色练度统计")
+sv_waves_char_list = SV("ww角色练度统计", priority=3)
 
 
 @sv_waves_char_list.on_regex(
