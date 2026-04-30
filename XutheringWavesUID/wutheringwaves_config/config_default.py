@@ -42,6 +42,7 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
             "小沐XMu",
             "吃我无痕",
             "巡游天国FM",
+            "社区攻略",
         ],
     ),
     "WavesGuideMaxSize": GsIntConfig(

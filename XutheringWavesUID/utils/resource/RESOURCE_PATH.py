@@ -49,6 +49,8 @@ XIAOYANG_GUIDE_PATH = GUIDE_PATH / "XiaoYang"
 WUHEN_GUIDE_PATH = GUIDE_PATH / "WuHen"
 # 巡游天国 攻略库
 XFM_GUIDE_PATH = GUIDE_PATH / "XFM"
+# 社区攻略 攻略库
+KUROBBS_GUIDE_PATH = GUIDE_PATH / "KuroBBS"
 
 # 构建 和 详情文件
 BUILD_ROOT = Path(__file__).parent.parent
@@ -113,6 +115,7 @@ def init_dir():
         VANZI_GUIDE_PATH,
         XIAOYANG_GUIDE_PATH,
         XFM_GUIDE_PATH,
+        KUROBBS_GUIDE_PATH,
         CUSTOM_CARD_PATH,
         OTHER_PATH,
         CALENDAR_PATH,
