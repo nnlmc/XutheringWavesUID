@@ -25,6 +25,7 @@ from .upload_card import (
     compress_all_custom_card,
 )
 from .card_utils import (
+    CUSTOM_PATH_NAME_MAP,
     get_char_id_and_name,
     match_hash_id_from_event,
     send_custom_card_single,
@@ -49,12 +50,13 @@ waves_upload_char = SV("waves上传面板图", priority=3, pm=1)
 waves_char_card_single = SV("waves查看面板图", priority=3)
 waves_char_card_list = SV("waves面板图列表", priority=3, pm=1)
 waves_delete_char_card = SV("waves删除面板图", priority=3, pm=1)
-waves_delete_all_card = SV("waves删除全部面板图", priority=5, pm=1)
-waves_compress_card = SV("waves面板图压缩", priority=5, pm=1)
+waves_delete_all_card = SV("waves删除全部面板图", priority=3, pm=1)
+waves_compress_card = SV("waves面板图压缩", priority=3, pm=1)
 waves_repeated_card = SV("waves面板图查重", priority=2, pm=1)
 waves_new_get_char_info = SV("waves新获取面板", priority=3)
 waves_new_get_one_char_info = SV("waves新获取单个角色面板", priority=3)
-waves_new_char_detail = SV("waves新角色面板", priority=4)
+waves_new_char_detail = SV("waves新角色面板", priority=5)
+waves_char_tips = SV("waves面板图权限提示和审核", priority=4)
 waves_char_detail = SV("waves角色面板", priority=5)
 
 _repeated_card_lock = asyncio.Lock()
@@ -155,8 +157,15 @@ async def repeated_char_card(bot: Bot, ev: Event):
     asyncio.create_task(_run())
 
 
+_CARD_TYPES = "面板|面包|🍞|card|体力|每日|mr|背景|bg"
+_CARD_VERBS = "查看|提取|获取"
+
+
 @waves_char_card_single.on_regex(
-    rf"^(查看|提取|获取)(?P<char>{PATTERN})?(?P<type>面板|面包|🍞|card|体力|每日|mr|背景|bg)图(?P<hash_id>[a-zA-Z0-9]+)?$",
+    (
+        rf"^(?:{_CARD_VERBS})(?P<char>{PATTERN})?(?P<type>{_CARD_TYPES})图(?P<hash_id>[a-zA-Z0-9]+)?$",
+        rf"^(?P<char>{PATTERN})?(?P<type>{_CARD_TYPES})图(?:{_CARD_VERBS})(?P<hash_id>[a-zA-Z0-9]+)?$",
+    ),
     block=True,
 )
 async def get_char_card_single(bot: Bot, ev: Event):
@@ -190,6 +199,77 @@ async def get_char_card_single(bot: Bot, ev: Event):
         hash_id,
         target_type=TYPE_MAP.get(ev.regex_dict.get("type"), "card"),
     )
+
+
+# 触发时机: 用户输入命中下面 4 个 protected SV 的正则, 但 priority<4 处的 SV 因
+# pm 检查未通过被跳过, 事件流到这里。如果用户对该 SV 实际有权限, priority=3 的
+# 同 SV 会先 fire 并 block=True, 本 handler 永远不会进入。
+# 单独存在的目的: 防止无权限输入 fall through 到 waves_char_detail 被错认为
+# `char='上传X' / '删除X'` 之类的角色查询。
+@waves_char_tips.on_regex(
+    (
+        rf"^(?P<kind_upload>(?:强制)?上传)(?P<char>{PATTERN})(?P<type>{_CARD_TYPES})图$",
+        rf"^(?P<char>{PATTERN})(?P<type>{_CARD_TYPES})(?P<kind_list>图列表)$",
+        rf"^(?P<kind_delete>删除)(?P<char>{PATTERN})(?P<type>{_CARD_TYPES})图\s*[a-zA-Z0-9,，]+$",
+        rf"^(?P<kind_delete_all>删除全部)(?P<char>{PATTERN})(?P<type>{_CARD_TYPES})图$",
+    ),
+    block=True,
+)
+async def char_tips(bot: Bot, ev: Event):
+    if ev.regex_dict.get("kind_upload") and WutheringWavesConfig.get_config("WavesUploadAudit").data:
+        return await _forward_upload_to_master(bot, ev)
+    await bot.send(
+        "[鸣潮] 您没有「上传/查看列表/删除」面板图等权限，请联系主人处理面板图相关。"
+    )
+
+
+async def _forward_upload_to_master(bot: Bot, ev: Event):
+    from gsuid_core.subscribe import gs_subscribe
+    from .card_utils import get_image
+
+    images = await get_image(ev)
+    if not images:
+        return await bot.send("[鸣潮] 请同时发送要上传的图片")
+
+    subs = await gs_subscribe.get_subscribe("联系主人")
+    logger.info(f"[鸣潮·上传审核] 取到 {len(subs) if subs else 0} 个主人订阅")
+    if not subs:
+        return await bot.send("[鸣潮] 当前无主人订阅审核通道，请联系主人配置")
+
+    char = ev.regex_dict.get("char") or ""
+    raw_type = ev.regex_dict.get("type") or "面板"
+    type_label = CUSTOM_PATH_NAME_MAP.get(TYPE_MAP.get(raw_type, "card"), "面板") + "图"
+
+    origin = f"用户 {ev.user_id}"
+    if ev.group_id:
+        origin += f" (群 {ev.group_id})"
+
+    text = (
+        f"[鸣潮·上传审核] {origin} 申请上传【{char}】的{type_label}\n"
+        f"通过审核请发送: {PREFIX}上传{char}{type_label} 并附下方图片"
+    )
+    payload = [text] + [MessageSegment.image(url) for url in images]
+
+    fail = 0
+    for sub in subs:
+        logger.info(
+            f"[鸣潮·上传审核] 准备转发 sub bot_id={sub.bot_id} "
+            f"user_id={sub.user_id} group_id={sub.group_id} "
+            f"user_type={sub.user_type} bot_self_id={sub.bot_self_id} "
+            f"WS_BOT_ID={sub.WS_BOT_ID}"
+        )
+        try:
+            ret = await sub.send(payload)
+            logger.info(f"[鸣潮·上传审核] sub.send 返回={ret}")
+            if ret == -1:
+                fail += 1
+        except Exception as e:
+            fail += 1
+            logger.exception(f"[鸣潮·上传审核] 转发失败 err={e}")
+
+    if subs and fail == len(subs):
+        return await bot.send("[鸣潮] 转发审核失败，请稍后再试或联系主人")
+    await bot.send("[鸣潮] 上传申请已提交给主人审核，请等待处理")
 
 
 @waves_new_get_char_info.on_fullmatch(
@@ -227,9 +307,27 @@ async def send_card_info(bot: Bot, ev: Event):
     from .draw_refresh_char_card import draw_refresh_char_detail_img
 
     buttons = []
-    msg, num_updated = await draw_refresh_char_detail_img(bot, ev, user_id, uid, buttons)
+    msg, num_updated, top_improver = await draw_refresh_char_detail_img(bot, ev, user_id, uid, buttons)
     if isinstance(msg, str) or isinstance(msg, bytes):
         await bot.send_option(msg, buttons)
+
+    if (
+        top_improver
+        and isinstance(msg, bytes)
+        and WutheringWavesConfig.get_config("AutoSendCharAfterRefresh").data
+    ):
+        char_name = top_improver["roleName"]
+        delta = top_improver["delta"]
+        old_score = top_improver["old"]
+        new_score = top_improver["new"]
+        tip = (
+            f"[鸣潮] 你可能想查询【{PREFIX}{char_name}面板】，已执行该指令"
+        )
+        im = await draw_char_detail_img(ev, uid, char_name, user_id)
+        if isinstance(im, str):
+            await bot.send(f"{tip}\n{im}")
+        elif isinstance(im, bytes):
+            await bot.send([tip, MessageSegment.image(im)])
     # if num_updated <= 1 and isinstance(msg, bytes):
     #     asyncio.sleep(10) # 先发完吧
     #     from ..wutheringwaves_config import PREFIX
@@ -263,7 +361,7 @@ async def send_one_char_detail_msg(bot: Bot, ev: Event):
     from .draw_refresh_char_card import draw_refresh_char_detail_img
 
     buttons = []
-    msg, num_updated = await draw_refresh_char_detail_img(bot, ev, user_id, uid, buttons, refresh_type)
+    msg, num_updated, _top_improver = await draw_refresh_char_detail_img(bot, ev, user_id, uid, buttons, refresh_type)
 
     if num_updated <= 0:
         if isinstance(msg, str) or isinstance(msg, bytes):

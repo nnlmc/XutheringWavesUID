@@ -36,7 +36,7 @@ async def login_success_msg(bot: Bot, ev: Event, waves_user: WavesUser):
         draw_refresh_char_detail_img,
     )
 
-    msg, _ = await draw_refresh_char_detail_img(bot, ev, waves_user.user_id, waves_user.uid, buttons)
+    msg, _, _ = await draw_refresh_char_detail_img(bot, ev, waves_user.user_id, waves_user.uid, buttons)
     if isinstance(msg, bytes):
         return await bot.send_option(msg, buttons)
 

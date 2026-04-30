@@ -208,30 +208,31 @@ async def draw_refresh_char_detail_img(
 
     time_stamp = can_refresh_card(user_id, uid, is_single_refresh)
     if time_stamp > 0:
-        return get_refresh_interval_notify(time_stamp, is_single_refresh), 0
+        return get_refresh_interval_notify(time_stamp, is_single_refresh), 0, None
     self_ck, ck = await waves_api.get_ck_result(uid, user_id, ev.bot_id)
     if not ck:
-        return error_reply(WAVES_CODE_102), 0
+        return error_reply(WAVES_CODE_102), 0, None
     # 账户数据
     account_info = await waves_api.get_base_info(uid, ck)
     if not account_info.success:
-        return account_info.throw_msg(), 0
+        return account_info.throw_msg(), 0, None
     if not account_info.data:
-        return f"用户未展示数据, 请尝试【{PREFIX}登录】", 0
+        return f"用户未展示数据, 请尝试【{PREFIX}登录】", 0, None
     account_info = AccountBaseInfo.model_validate(account_info.data)
     # 缓存账户基本信息
     await save_base_info_cache(uid, account_info)
     # 更新group id
     await WavesBind.insert_waves_uid(user_id, ev.bot_id, uid, ev.group_id, lenth_limit=9)
 
-    waves_map = {"refresh_update": {}, "refresh_unchanged": {}}
+    waves_map = {"refresh_update": {}, "refresh_unchanged": {}, "top_improver": None}
     if ev.command in ["面板", "面包", "🍞", "mb"]:
         all_waves_datas = await get_all_role_detail_info_list(uid)
         if not all_waves_datas:
-            return "暂无面板数据", 0
+            return "暂无面板数据", 0, None
         waves_map = {
             "refresh_update": {},
             "refresh_unchanged": {i.role.roleId: i.model_dump() for i in all_waves_datas},
+            "top_improver": None,
         }
     else:
         waves_datas = await refresh_char(
@@ -244,7 +245,7 @@ async def draw_refresh_char_detail_img(
             refresh_type=refresh_type,
         )
         if isinstance(waves_datas, str):
-            return waves_datas, 0
+            return waves_datas, 0, None
 
     role_detail_list = [
         RoleDetailData(**r) for key in ["refresh_update", "refresh_unchanged"] for r in waves_map[key].values()
@@ -384,7 +385,7 @@ async def draw_refresh_char_detail_img(
     img = add_footer(img, 600, 20)
     img = await convert_img(img)
     set_cache_refresh_card(user_id, uid, is_single_refresh)
-    return img, role_update
+    return img, role_update, waves_map.get("top_improver")
 
 
 async def draw_pic(char_rank: WavesCharRank, isUpdate=False):

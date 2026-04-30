@@ -25,8 +25,8 @@ from ..wutheringwaves_rank.draw_gacha_rank_card import draw_gacha_rank_card
 sv_gacha_log = SV("waves抽卡记录")
 sv_gacha_help_log = SV("waves抽卡记录帮助")
 sv_gacha_rank = SV("waves抽卡排行", priority=0)
-sv_get_gachalog_by_link = SV("waves导入抽卡链接", area="DIRECT")
-sv_import_gacha_log = SV("waves导入抽卡记录", area="DIRECT")
+sv_get_gachalog_by_link = SV("waves导入抽卡链接") # , area="DIRECT"
+sv_import_gacha_log = SV("waves导入抽卡记录") # , area="DIRECT"
 sv_export_json_gacha_log = SV("waves导出抽卡记录")
 sv_delete_gacha_log = SV("waves删除抽卡记录")
 sv_delete_import_gacha_log = SV("waves删除抽卡导入", pm=0)

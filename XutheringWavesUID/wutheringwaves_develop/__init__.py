@@ -34,7 +34,7 @@ async def calc_develop(bot: Bot, ev: Event):
     if fuzzy_matches:
         from ..wutheringwaves_config import PREFIX
         full_cmd = f"{PREFIX}{' '.join(develop_list)} 养成"
-        await bot.send(f"[鸣潮] 你可能想输入【{full_cmd}】, 已按该指令执行")
+        await bot.send(f"[鸣潮] 你可能想查询【{full_cmd}】，已执行该指令")
 
     logger.info(f"养成列表: {develop_list}")
 

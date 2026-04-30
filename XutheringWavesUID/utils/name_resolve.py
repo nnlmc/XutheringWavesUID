@@ -44,7 +44,7 @@ class CharResolution:
         if not self.fuzzy_used or self.matched is None:
             return None
         body = command if command else self.matched
-        return f"[鸣潮] 你可能想输入【{body}】, 已按该指令执行:"
+        return f"[鸣潮] 你可能想查询【{body}】，已执行该指令"
 
     def wrap(self, im: Any, command: Optional[str] = None) -> Any:
         """fuzzy 命中: 把 tip + 图片打包成单条发送; 精确命中: 原样返回 im。"""

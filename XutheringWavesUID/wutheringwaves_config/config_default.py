@@ -209,6 +209,16 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
             "concatenate",
         ],
     ),
+    "WavesUploadAudit": GsBoolConfig(
+        "上传面板图允许审核（需订阅联系主人，建议配合白名单）",
+        "开启后, 无权限的用户使用上传面板图指令时, 若附带了图片, 会通过【联系主人】订阅转发给主人, 由主人审核后用上传指令落地",
+        False,
+    ),
+    "AutoSendCharAfterRefresh": GsBoolConfig(
+        "刷新面板时自动发送角色面板",
+        "全量刷新面板后，自动猜测用户可能想查看的角色面板",
+        True,
+    ),
     "HelpExtraModules": GsListStrConfig(
         "帮助显示额外模块（重启生效）",
         "在帮助中额外显示的模块：roversign(签到)、todayecho(梭哈)、scoreecho(评分)、roverreminder(体力推送)，需自行安装对应插件",
