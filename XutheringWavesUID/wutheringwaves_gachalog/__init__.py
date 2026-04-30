@@ -3,7 +3,6 @@ import json
 import time
 import shutil
 import asyncio
-from typing import Any, List
 from datetime import datetime
 
 from gsuid_core.sv import SV
@@ -13,7 +12,6 @@ from gsuid_core.segment import MessageSegment
 from gsuid_core.data_store import get_res_path
 
 from ..utils.cache import TimedCache
-from ..utils.button import WavesButton
 from .gacha_handler import fetch_mcgf_data, merge_gacha_data
 from .get_gachalogs import save_gachalogs, export_gachalogs, import_gachalogs
 from .draw_gachalogs import draw_card, draw_card_help
@@ -139,15 +137,18 @@ async def get_gacha_log_by_link(bot: Bot, ev: Event):
     if ev.command.startswith("强制"):
         await bot.logger.info("[WARNING]本次为强制刷新")
         is_force = True
-    await bot.send(f"UID{uid}开始执行[刷新抽卡记录],需要一定时间...请勿重复触发!")
+    await bot.send(f"UID{uid}开始执行[刷新抽卡记录],需要一定时间，请稍等!\n官方仅保存近180天抽卡记录，仅更新该部分。")
     im = await save_gachalogs(ev, uid, record_id, is_force)
 
     # 设置冷却缓存
     set_gacha_import_cache(ev.user_id, uid)
 
-    if "抽卡记录" in im:
-        buttons: List[Any] = [WavesButton("查看抽卡记录", "抽卡记录")]
-        await bot.send_option(im, buttons)
+    if im.startswith("🌱"):
+        card_img = await draw_card(uid, ev)
+        if isinstance(card_img, str):
+            await bot.send(im)
+        else:
+            await bot.send([im, MessageSegment.image(card_img)])
     else:
         await bot.send(im)
 

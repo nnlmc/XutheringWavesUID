@@ -18,7 +18,6 @@ from ..utils.api.model import GachaLog
 from ..utils.constants import WAVES_GAME_ID
 from ..utils.waves_api import waves_api
 from ..utils.database.models import WavesUser
-from ..wutheringwaves_config import PREFIX
 from .model_for_waves_plugin import WavesPluginGacha
 from ..utils.resource.RESOURCE_PATH import PLAYER_PATH
 
@@ -313,7 +312,6 @@ async def save_gachalogs(
         for k, v in gachalogs_count_add.items():
             if v > 0:
                 im.append(f"[{k}]新增{v}个数据！")
-    im.append(f"可以使用【{PREFIX}抽卡记录】获取全部抽卡数据")
     im = "\n".join(im)
     return im
 
