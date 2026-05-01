@@ -3,7 +3,8 @@ import ssl
 import time
 import shutil
 import asyncio
-from typing import List
+from pathlib import Path
+from typing import List, Optional, Set, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import httpx
@@ -32,6 +33,38 @@ from .card_utils import (
     ORB_BLOCK_THRESHOLD,
     update_orb_cache,
 )
+
+
+def check_image_dimensions(temp_path: Path, target_type: str, index: int) -> Optional[str]:
+    try:
+        with Image.open(temp_path) as img:
+            w, h = img.size
+            if target_type in ["card", "stamina"] and w > h:
+                return f"第{index}张图片尺寸错误，面板图和体力图需要竖版图片（宽 ≤ 高），可能想上传：背景图"
+            if target_type == "bg" and h > w:
+                return f"第{index}张图片尺寸错误，背景图需要横版图片（高 ≤ 宽），可能想上传：面板图"
+    except Exception as e:
+        logger.warning(f"[鸣潮] 检查图片尺寸失败: {e}")
+    return None
+
+
+def collect_blocked_duplicates(
+    temp_dir: Path, new_images: List[Path]
+) -> Tuple[List[str], Set[Path]]:
+    dup_map = find_duplicates_for_new_images(temp_dir, new_images)
+    block_msgs: List[str] = []
+    blocked_paths: Set[Path] = set()
+    for index, new_path in enumerate(new_images, start=1):
+        dup_list = dup_map.get(new_path)
+        if not dup_list:
+            continue
+        dup_list = sorted(dup_list, key=lambda x: -x[1])
+        top_path, top_sim = dup_list[0]
+        top_id = get_hash_id(top_path.name)
+        if top_sim >= ORB_BLOCK_THRESHOLD:
+            block_msgs.append(f"第{index}张和已有id {top_id} 重复")
+            blocked_paths.add(new_path)
+    return block_msgs, blocked_paths
 
 
 async def upload_custom_card(
@@ -84,24 +117,11 @@ async def upload_custom_card(
                 success = False
                 break
 
-            # 尺寸检查
-            try:
-                with Image.open(temp_path) as img:
-                    w, h = img.size
-                    if target_type in ["card", "stamina"]:
-                        # 面板图和体力图：宽大于高则拒绝
-                        if w > h:
-                            size_check_failed.append(f"第{index}张图片尺寸错误，面板图和体力图需要竖版图片（宽 ≤ 高）")
-                            temp_path.unlink()
-                            continue
-                    elif target_type == "bg":
-                        # 背景图：高大于宽则拒绝
-                        if h > w:
-                            size_check_failed.append(f"第{index}张图片尺寸错误，背景图需要横版图片（高 ≤ 宽）")
-                            temp_path.unlink()
-                            continue
-            except Exception as e:
-                logger.warning(f"[鸣潮] 检查图片尺寸失败: {e}")
+            err_msg = check_image_dimensions(temp_path, target_type, index)
+            if err_msg:
+                size_check_failed.append(err_msg)
+                temp_path.unlink()
+                continue
 
             new_images.append(temp_path)
 
@@ -115,19 +135,7 @@ async def upload_custom_card(
     if success:
         msg = f"[鸣潮]【{char}】上传{type_label}图成功！"
         if new_images:
-            dup_map = find_duplicates_for_new_images(temp_dir, new_images)
-            block_msgs = []
-            blocked_paths = set()
-            for index, new_path in enumerate(new_images, start=1):
-                dup_list = dup_map.get(new_path)
-                if not dup_list:
-                    continue
-                dup_list = sorted(dup_list, key=lambda x: -x[1])
-                top_path, top_sim = dup_list[0]
-                top_id = get_hash_id(top_path.name)
-                if top_sim >= ORB_BLOCK_THRESHOLD:
-                    block_msgs.append(f"第{index}张和已有id {top_id} 重复")
-                    blocked_paths.add(new_path)
+            block_msgs, blocked_paths = collect_blocked_duplicates(temp_dir, new_images)
 
             if block_msgs and not is_force:
                 for img_path in blocked_paths:

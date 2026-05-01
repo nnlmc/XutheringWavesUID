@@ -224,67 +224,118 @@ async def char_tips(bot: Bot, ev: Event):
 
 
 async def _forward_upload_to_master(bot: Bot, ev: Event):
+    import time
+
     from gsuid_core.subscribe import gs_subscribe
-    from .card_utils import get_image, _fetch_image_bytes
+    from ..utils.resource.RESOURCE_PATH import CUSTOM_CARD_PATH
+    from .card_utils import (
+        CUSTOM_PATH_MAP,
+        delete_orb_cache,
+        get_char_id_and_name,
+        get_image,
+        _fetch_image_bytes,
+    )
+    from .upload_card import check_image_dimensions, collect_blocked_duplicates
 
     images = await get_image(ev)
     if not images:
         return await bot.send("[鸣潮] 请同时发送要上传的图片")
 
-    # QQ 的 rkey URL 跨会话引用容易失效, 预下载为字节再转发
-    image_bytes = []
-    for url in images:
-        b = await _fetch_image_bytes(url)
-        if b:
+    target_type = TYPE_MAP.get(ev.regex_dict.get("type"), "card")
+    type_label = CUSTOM_PATH_NAME_MAP.get(target_type, "面板") + "图"
+
+    char_id, char_name, err = get_char_id_and_name(ev.regex_dict.get("char") or "")
+    if err or not char_id:
+        return await bot.send(err or "[鸣潮] 角色名无法识别")
+
+    # 下载到目标目录，复用主人上传同样的尺寸/查重校验，
+    # 不通过则不转发主人；通过后清掉临时文件，等主人审核后再走正式上传
+    temp_dir = CUSTOM_PATH_MAP.get(target_type, CUSTOM_CARD_PATH) / f"{char_id}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+
+    image_bytes: list = []
+    new_images: list = []
+    size_check_failed: list = []
+    try:
+        for index, url in enumerate(images, start=1):
+            b = await _fetch_image_bytes(url)
+            if not b:
+                logger.warning(f"[鸣潮·上传审核] 图片下载失败: {url}")
+                continue
+            temp_path = temp_dir / f"{char_id}_{int(time.time() * 1000)}_{index}.jpg"
+            try:
+                temp_path.write_bytes(b)
+            except Exception as e:
+                logger.warning(f"[鸣潮·上传审核] 写入临时文件失败: {e}")
+                continue
+
+            err_msg = check_image_dimensions(temp_path, target_type, index)
+            if err_msg:
+                size_check_failed.append(err_msg)
+                temp_path.unlink(missing_ok=True)
+                continue
+
             image_bytes.append(b)
-        else:
-            logger.warning(f"[鸣潮·上传审核] 图片下载失败: {url}")
-    if not image_bytes:
-        return await bot.send("[鸣潮] 上传图片下载失败，请稍后重试")
+            new_images.append(temp_path)
 
-    subs = await gs_subscribe.get_subscribe("联系主人")
-    logger.info(f"[鸣潮·上传审核] 取到 {len(subs) if subs else 0} 个主人订阅")
-    if not subs:
-        return await bot.send("[鸣潮] 当前无主人订阅审核通道，请联系主人配置")
+        if not new_images:
+            if size_check_failed:
+                return await bot.send("[鸣潮] 上传失败！\n" + "\n".join(size_check_failed))
+            return await bot.send("[鸣潮] 上传图片下载失败，请稍后重试")
 
-    char = ev.regex_dict.get("char") or ""
-    raw_type = ev.regex_dict.get("type") or "面板"
-    type_label = CUSTOM_PATH_NAME_MAP.get(TYPE_MAP.get(raw_type, "card"), "面板") + "图"
+        block_msgs, _blocked = collect_blocked_duplicates(temp_dir, new_images)
+        if block_msgs:
+            prefix_msg = ("\n".join(size_check_failed) + "\n") if size_check_failed else ""
+            return await bot.send(
+                f"[鸣潮]【{char_name}】{prefix_msg}疑似重复: {'；'.join(block_msgs)}，已拒绝转交主人审核"
+            )
 
-    origin = f"用户 {ev.user_id}"
-    if ev.group_id:
-        origin += f" (群 {ev.group_id})"
+        subs = await gs_subscribe.get_subscribe("联系主人")
+        logger.info(f"[鸣潮·上传审核] 取到 {len(subs) if subs else 0} 个主人订阅")
+        if not subs:
+            return await bot.send("[鸣潮] 当前无主人订阅审核通道，请联系主人配置")
 
-    text = (
-        f"[鸣潮·上传审核] {origin} 申请上传【{char}】的{type_label}\n"
-        f"通过审核请发送: {PREFIX}上传{char}{type_label} 并附下方图片"
-    )
+        origin = f"用户 {ev.user_id}"
+        if ev.group_id:
+            origin += f" (群 {ev.group_id})"
 
-    fail = 0
-    for sub in subs:
-        logger.info(
-            f"[鸣潮·上传审核] 准备转发 sub bot_id={sub.bot_id} "
-            f"user_id={sub.user_id} group_id={sub.group_id} "
-            f"user_type={sub.user_type} bot_self_id={sub.bot_self_id} "
-            f"WS_BOT_ID={sub.WS_BOT_ID}"
+        text = (
+            f"[鸣潮·上传审核] {origin} 申请上传【{char_name}】的{type_label}\n"
+            f"通过审核请发送: {PREFIX}上传{char_name}{type_label} 并附下方图片"
         )
-        try:
-            ret_text = await sub.send(text)
-            logger.info(f"[鸣潮·上传审核] sub.send(text) 返回={ret_text}")
-            for idx, b in enumerate(image_bytes):
-                ret_img = await sub.send(MessageSegment.image(b))
-                logger.info(f"[鸣潮·上传审核] sub.send(image#{idx}) 返回={ret_img}")
-                if ret_img == -1:
-                    fail += 1
-            if ret_text == -1:
-                fail += 1
-        except Exception as e:
-            fail += 1
-            logger.exception(f"[鸣潮·上传审核] 转发失败 err={e}")
 
-    if subs and fail == len(subs):
-        return await bot.send("[鸣潮] 转发审核失败，请稍后再试或联系主人")
-    await bot.send("[鸣潮] 上传申请已提交给主人审核，请等待处理")
+        fail = 0
+        for sub in subs:
+            logger.info(
+                f"[鸣潮·上传审核] 准备转发 sub bot_id={sub.bot_id} "
+                f"user_id={sub.user_id} group_id={sub.group_id} "
+                f"user_type={sub.user_type} bot_self_id={sub.bot_self_id} "
+                f"WS_BOT_ID={sub.WS_BOT_ID}"
+            )
+            try:
+                ret_text = await sub.send(text)
+                logger.info(f"[鸣潮·上传审核] sub.send(text) 返回={ret_text}")
+                for idx, b in enumerate(image_bytes):
+                    ret_img = await sub.send(MessageSegment.image(b))
+                    logger.info(f"[鸣潮·上传审核] sub.send(image#{idx}) 返回={ret_img}")
+                    if ret_img == -1:
+                        fail += 1
+                if ret_text == -1:
+                    fail += 1
+            except Exception as e:
+                fail += 1
+                logger.exception(f"[鸣潮·上传审核] 转发失败 err={e}")
+
+        if subs and fail == len(subs):
+            return await bot.send("[鸣潮] 转发审核失败，请稍后再试或联系主人")
+        await bot.send("[鸣潮] 上传申请已提交给主人审核，请等待处理")
+    finally:
+        for p in new_images:
+            try:
+                p.unlink(missing_ok=True)
+            except Exception:
+                pass
+            delete_orb_cache(p)
 
 
 @waves_new_get_char_info.on_fullmatch(
