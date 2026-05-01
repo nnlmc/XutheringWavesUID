@@ -39,7 +39,7 @@ async def get_url() -> tuple[str, bool]:
     if url:
         if not url.startswith("http"):
             url = f"https://{url}"
-        return url, WutheringWavesConfig.get_config("WavesLoginUrlSelf").data
+        return url.rstrip("/"), WutheringWavesConfig.get_config("WavesLoginUrlSelf").data
     else:
         HOST = core_config.get_config("HOST")
         PORT = core_config.get_config("PORT")

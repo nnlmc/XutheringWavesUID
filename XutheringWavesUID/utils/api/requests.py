@@ -118,6 +118,8 @@ class WavesApi:
             self._sessions[key] = session
             return session
 
+    # 与 utils.at_help.is_intl_uid 同一判定 (>=2e8 即国际服),
+    # 区别仅在于这里是类方法、那边是模块级函数; 改动需保持两处一致。
     def is_net(self, roleId):
         _temp = int(roleId)
         return _temp >= 200000000
