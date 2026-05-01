@@ -20,6 +20,9 @@ from ..utils.resource.RESOURCE_PATH import (
     MAP_BUILD_TEMP,
 )
 
+# 网页面板编辑器 (导入即注册路由 /waves/panel-edit/, 由 WavesPanelEditPassword 启停)
+from . import panel_editor  # noqa: F401
+
 RESOURCE_DOWNLOAD_TIME = WutheringWavesConfig.get_config("ResourceDownloadTime").data
 if not RESOURCE_DOWNLOAD_TIME or len(RESOURCE_DOWNLOAD_TIME) != 2:
     logger.warning("[鸣潮] 资源下载时间配置异常，将不进行定时下载")

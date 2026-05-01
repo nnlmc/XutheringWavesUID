@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="dark" />
+  <title>鸣潮 · 面板/背景图编辑台</title>
+  <link rel="stylesheet" href="/waves/panel-edit/static/style.css" />
+</head>
+<body>
+  <button id="mobileMenu" class="mobile-trigger mobile-trigger--menu" aria-label="目录" type="button">≡</button>
+  <button id="mobilePreview" class="mobile-trigger mobile-trigger--preview" aria-label="预览" type="button">◧</button>
+  <div id="app">
+    <header class="topbar" role="banner">
+      <div class="topbar__brand">
+        <span class="topbar__mark" aria-hidden="true"></span>
+        <div class="topbar__titles">
+          <h1 class="topbar__title">鸣潮 <span class="topbar__sep">·</span> 面板/背景图编辑台</h1>
+          <p class="topbar__subtitle">custom_role_pile <span class="dot">·</span> custom_mr_bg <span class="dot">·</span> custom_mr_role_pile</p>
+        </div>
+      </div>
+      <div class="topbar__meta" id="topbarMeta" aria-live="polite">
+        <span class="status-dot status-dot--ok"></span>
+        <span class="topbar__status">在线 / Basic Auth</span>
+      </div>
+    </header>
+
+    <aside class="sidebar" id="sidebar" role="navigation" aria-label="文件夹导航">
+      <div class="sidebar__tabs" role="tablist" id="typeTabs"></div>
+      <div class="sidebar__filter">
+        <span class="sidebar__filter-icon" aria-hidden="true">⌕</span>
+        <input type="text" id="folderFilter" placeholder="筛选 char_id 或角色名" autocomplete="off" />
+      </div>
+      <div class="sidebar__head">
+        <span class="sidebar__head-label">FOLDERS</span>
+        <span class="sidebar__head-count" id="folderCount">—</span>
+      </div>
+      <div class="sidebar__list" id="folderList" tabindex="0"></div>
+    </aside>
+
+    <div class="resizer resizer--side" id="resizerSide" role="separator" aria-orientation="vertical" aria-label="拖动调整目录宽度" tabindex="0"></div>
+
+    <main class="center" id="centerPane">
+      <div class="center__head" id="centerHead"></div>
+      <div class="center__body" id="centerBody"></div>
+    </main>
+
+    <div class="resizer resizer--preview" id="resizerPreview" role="separator" aria-orientation="vertical" aria-label="拖动调整预览宽度" tabindex="0"></div>
+
+    <section class="preview" id="previewPane" aria-label="预览面板">
+      <div class="preview__head">
+        <div class="preview__titles">
+          <h2 id="previewTitle">预览</h2>
+          <p id="previewSub" class="preview__sub">未选中</p>
+        </div>
+        <div class="preview__controls" id="previewControls"></div>
+      </div>
+      <div class="preview__viewport" id="previewViewport">
+        <div class="viewfinder" aria-hidden="true">
+          <span class="viewfinder__c viewfinder__c--tl"></span>
+          <span class="viewfinder__c viewfinder__c--tr"></span>
+          <span class="viewfinder__c viewfinder__c--bl"></span>
+          <span class="viewfinder__c viewfinder__c--br"></span>
+        </div>
+        <div class="preview__placeholder" id="previewPlaceholder">
+          <p class="preview__placeholder-title">SELECT AN IMAGE</p>
+          <p class="preview__placeholder-sub">从中央栅格选择一张图，或上传新文件以开始裁剪</p>
+        </div>
+        <img id="previewImg" alt="" />
+        <div class="preview__overlay" id="previewOverlay">
+          <div class="spinner" aria-hidden="true"></div>
+          <span>渲染中…</span>
+        </div>
+      </div>
+      <footer class="preview__foot" id="previewFoot"></footer>
+    </section>
+
+    <div id="toasts" class="toast-stack" role="region" aria-live="polite"></div>
+    <div id="scrim" class="scrim" aria-hidden="true"></div>
+  </div>
+
+  <script src="/waves/panel-edit/static/app.js" defer></script>
+</body>
+</html>

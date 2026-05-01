@@ -3,8 +3,13 @@ import re
 import random
 import base64
 from io import BytesIO
+from contextvars import ContextVar
 from typing import Tuple, Union, Literal, Optional
 from pathlib import Path
+
+# 面板编辑器预览用: 强制本次渲染的立绘/背景图。
+_force_pile_path: ContextVar[Optional[Path]] = ContextVar("_ww_force_pile_path", default=None)
+_force_bg_path: ContextVar[Optional[Path]] = ContextVar("_ww_force_bg_path", default=None)
 
 from PIL import (
     Image,
@@ -250,6 +255,9 @@ async def get_random_share_bg_path():
 
 
 async def get_random_waves_role_pile(char_id: Optional[str] = None, force_not_use_custom: bool = False):
+    forced = _force_pile_path.get()
+    if forced is not None and forced.exists():
+        return Image.open(forced).convert("RGBA")
     if char_id:
         return await get_role_pile_default(char_id, custom=not force_not_use_custom)
 
@@ -258,6 +266,9 @@ async def get_random_waves_role_pile(char_id: Optional[str] = None, force_not_us
 
 
 async def get_random_waves_bg(char_id: Optional[str] = None, force_not_use_custom: bool = False):
+    forced = _force_bg_path.get()
+    if forced is not None and forced.exists():
+        return Image.open(forced).convert("RGBA"), True
     if char_id:
         custom_dir = f"{CUSTOM_MR_BG_PATH}/{char_id}"
         if not force_not_use_custom and os.path.isdir(custom_dir) and len(os.listdir(custom_dir)) > 0:
@@ -307,6 +318,9 @@ async def get_role_pile_with_path(
     resource_id: Union[int, str],
     custom: bool = False,
 ) -> tuple[bool, Image.Image, Optional[Path]]:
+    forced = _force_pile_path.get()
+    if forced is not None and forced.exists():
+        return True, Image.open(forced).convert("RGBA"), forced
     if custom:
         custom_dir = f"{CUSTOM_CARD_PATH}/{resource_id}"
         if os.path.isdir(custom_dir) and len(os.listdir(custom_dir)) > 0:
@@ -322,6 +336,9 @@ async def get_role_pile_with_path(
     return False, Image.open(ROLE_PILE_PATH / "role_pile_1503.png").convert("RGBA"), None
 
 async def get_role_pile_default(resource_id: Union[int, str], custom: bool = False) -> Image.Image:
+    forced = _force_pile_path.get()
+    if forced is not None and forced.exists():
+        return Image.open(forced).convert("RGBA")
     if custom:
         custom_dir = f"{CUSTOM_MR_CARD_PATH}/{resource_id}"
         if os.path.isdir(custom_dir) and len(os.listdir(custom_dir)) > 0:

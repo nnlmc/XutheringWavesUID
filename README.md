@@ -47,6 +47,24 @@ https://blog.ovoii.io/posts/notes/wwbot
 
     无。评分功能由于是独立的服务，需额外计算资源，与插件本体无关。
 
+## 丨网页面板/背景图编辑器
+
+内置一个浏览/裁剪/上传 `custom_role_pile`、`custom_mr_bg`、`custom_mr_role_pile` 的网页工具，省去用社交软件 IM 一张张走 `上传XX面板图` 命令的繁琐。
+
+- **入口**：`http://<HOST>:<PORT>/waves/panel-edit/`，与 core 共用同一端口。
+- **启用**：在 `WutheringWavesConfig` 中设置 `WavesPanelEditPassword` 为非空字符串；为空时入口会显示一个引导页，不暴露任何图片或接口。
+- **鉴权**：HTTP Basic Auth，用户名固定 `admin`，密码即上述配置项（明文比较 `secrets.compare_digest`）。
+- **能力**：
+  - 三类资源切换：面板图 / MR 背景图 / MR 立绘。
+  - 文件夹列表按 `id2name` 显示角色名 + 数量徽章 + 模糊筛选。
+  - 缩略图懒加载（`IntersectionObserver` + 4 并发上限）+ 服务器端 webp 缓存，避免大列表打爆带宽。
+  - 选中图片右侧实时渲染预览：面板图调极限面板（未适配则回退为占位预览）；MR 用固定样本数据 + HTML / PIL 切换。
+  - 上传单张 → 进入裁剪模式（八向手柄 + 三分线 + 实时源像素读数），裁剪后预览自动重渲染；支持「还原」回到原图。
+  - 批量上传 → 在中央暂存区列卡片，需勾选「我已确认风险」再「全部确认上传」。
+  - 编辑已有图：把服务器原图回拉成新 tmp，进入裁剪流，确认时走 `/replace-existing` 覆盖原图并重建 ORB 索引。带醒目警告。
+- **安全**：所有图片/列表/预览/上传/确认/删除接口都需 Basic Auth；`char_id` / `name` / `token` 走严格白名单 + 受控根目录的 `safe_join`，无法路径穿越或跨目录写入。
+- **启动日志**：模块加载时会打印一行包含完整 URL 的提示，告知是否已启用。
+
 ## 丨拓展
 
 签到功能：[RoverSign](https://github.com/Loping151/RoverSign)
