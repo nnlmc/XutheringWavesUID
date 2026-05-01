@@ -181,45 +181,49 @@ async def page_login_other(bot: Bot, ev: Event, url):
 
         cache.set(user_token, token)
         times = 3
-        async with timeout(180):
-            while True:
-                if times <= 0:
-                    return await bot.send("服务请求失败! 请稍后再试\n", at_sender=at_sender)
+        try:
+            async with timeout(180):
+                while True:
+                    if times <= 0:
+                        return await bot.send("服务请求失败! 请稍后再试\n", at_sender=at_sender)
 
-                result = await client.post(url + "/waves/get", json={"token": token})
-                if result.status_code != 200:
-                    times -= 1
-                    await asyncio.sleep(5)
-                    continue
-
-                try:
-                    text = result.text
-                    if not text or text.strip() == "":
-                        logger.error("请求登录服务失败：/waves/get返回空响应")
+                    result = await client.post(url + "/waves/get", json={"token": token})
+                    if result.status_code != 200:
                         times -= 1
                         await asyncio.sleep(5)
                         continue
-                    data = result.json()
-                except Exception as json_err:
-                    logger.error(f"请求登录服务失败：{json_err} | 响应: {result.text[:200]}")
-                    times -= 1
-                    await asyncio.sleep(5)
-                    continue
 
-                if not data.get("ck"):
-                    await asyncio.sleep(1)
-                    continue
+                    try:
+                        text = result.text
+                        if not text or text.strip() == "":
+                            logger.error("请求登录服务失败：/waves/get返回空响应")
+                            times -= 1
+                            await asyncio.sleep(5)
+                            continue
+                        data = result.json()
+                    except Exception as json_err:
+                        logger.error(f"请求登录服务失败：{json_err} | 响应: {result.text[:200]}")
+                        times -= 1
+                        await asyncio.sleep(5)
+                        continue
 
-                waves_user, bind_msg = await add_cookie(ev, data["ck"], data["did"])
-                cache.delete(user_token)
-                if "成功" in bind_msg:
-                    await bot.send((" " if at_sender else "") + bind_msg.rstrip("\n"), at_sender)
-                if waves_user and isinstance(waves_user, WavesUser):
-                    return await login_success_msg(bot, ev, waves_user)
-                else:
+                    if not data.get("ck"):
+                        await asyncio.sleep(1)
+                        continue
+
+                    waves_user, bind_msg = await add_cookie(ev, data["ck"], data["did"])
+                    cache.delete(user_token)
                     if "成功" in bind_msg:
-                        return
-                    return await bot.send(bind_msg if bind_msg else msg_error, at_sender=at_sender)
+                        await bot.send((" " if at_sender else "") + bind_msg.rstrip("\n"), at_sender)
+                    if waves_user and isinstance(waves_user, WavesUser):
+                        return await login_success_msg(bot, ev, waves_user)
+                    else:
+                        if "成功" in bind_msg:
+                            return
+                        return await bot.send(bind_msg if bind_msg else msg_error, at_sender=at_sender)
+        except asyncio.TimeoutError:
+            cache.delete(user_token)
+            return await bot.send("登录超时!", at_sender=at_sender)
 
 
 async def page_login(bot: Bot, ev: Event):
