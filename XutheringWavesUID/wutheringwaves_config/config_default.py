@@ -277,4 +277,9 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
         "为空则关闭网页面板图/背景图编辑工具；设置后通过 HTTP Basic Auth 鉴权（用户名固定 admin），地址 /waves/panel-edit/",
         "",
     ),
+    "WavesPanelEditGuestView": GsBoolConfig(
+        "面板图编辑访客只读浏览",
+        "开启后，未登录用户可浏览图片列表（不渲染预览，不占用服务器资源）；上传/裁剪/删除/覆盖仍需密码",
+        False,
+    ),
 }

@@ -12,6 +12,7 @@ const TYPE_INFO = {
 
 const state = {
   meta: null,
+  role: "admin",              // "admin" | "guest" — 由 /api/meta 返回
   type: "card",
   folders: [],
   filterText: "",
@@ -21,6 +22,8 @@ const state = {
 
   // mode: "browse" | "single-crop" | "batch"
   mode: "browse",
+  // 缩略图基准宽度 (px); null = 跟随 CSS 默认 (响应式)
+  thumbSize: null,
   // single-crop tmp:
   cropTmp: null,              // {token, suffix, source: {w,h}, current: {w,h}, kind: "upload" | "edit-existing", origin: {char_id,name}? }
   cropRect: null,             // {x,y,w,h} display coords
@@ -101,31 +104,68 @@ function toast(msg, kind = "info", timeout = 3500) {
 }
 
 // ============================================================
-// Lazy thumb loader — IntersectionObserver + concurrency limiter
+// Lazy thumb loader — IntersectionObserver + 并发限制 + 带退避的重试
+// 弱网环境: navigator.connection 报 slow-2g/2g/3g 时压低并发到 2。
 // ============================================================
 const LazyImages = (() => {
   const queue = [];
   let inflight = 0;
-  const MAX = 4;
+
+  const conn = (typeof navigator !== "undefined" && navigator.connection) || null;
+  const slow = () => conn && /^(slow-2g|2g|3g)$/.test(conn.effectiveType || "");
+  const max = () => (slow() ? 2 : 4);
+  const MAX_RETRY = 3;
+  const BACKOFFS = [800, 2400, 6000]; // ms
 
   const next = () => {
-    while (inflight < MAX && queue.length) {
+    while (inflight < max() && queue.length) {
       const node = queue.shift();
-      if (!node.isConnected) continue;
-      const src = node.dataset.src;
-      if (!src) continue;
-      inflight++;
-      const onDone = () => {
-        inflight--;
-        next();
-      };
-      node.addEventListener("load", () => {
-        node.parentElement?.classList.add("is-loaded");
-        onDone();
-      }, { once: true });
-      node.addEventListener("error", onDone, { once: true });
-      node.src = src;
+      if (!node || !node.isConnected) continue;
+      attempt(node);
     }
+  };
+
+  const attempt = (node) => {
+    const src = node.dataset.src;
+    if (!src) return;
+    inflight++;
+    const tile = node.parentElement;
+    tile?.classList.remove("is-error");
+
+    const onLoad = () => {
+      cleanup();
+      tile?.classList.add("is-loaded");
+      done();
+    };
+    const onError = () => {
+      cleanup();
+      const tries = (parseInt(node.dataset.tries || "0", 10) | 0) + 1;
+      node.dataset.tries = String(tries);
+      if (tries < MAX_RETRY) {
+        const wait = BACKOFFS[Math.min(tries - 1, BACKOFFS.length - 1)];
+        setTimeout(() => {
+          if (node.isConnected) queue.push(node);
+          done();
+        }, wait);
+      } else {
+        tile?.classList.add("is-error");
+        done();
+      }
+    };
+    const cleanup = () => {
+      node.removeEventListener("load", onLoad);
+      node.removeEventListener("error", onError);
+    };
+    const done = () => {
+      inflight--;
+      next();
+    };
+
+    node.addEventListener("load", onLoad);
+    node.addEventListener("error", onError);
+    // 加 cache-bust 仅在重试时避免命中浏览器对失败 URL 的负缓存
+    const tries = parseInt(node.dataset.tries || "0", 10) | 0;
+    node.src = tries > 0 ? `${src}${src.includes("?") ? "&" : "?"}retry=${tries}` : src;
   };
 
   const observer = new IntersectionObserver(entries => {
@@ -138,8 +178,26 @@ const LazyImages = (() => {
     next();
   }, { rootMargin: "200px 0px", threshold: 0.01 });
 
+  // 网络从离线变在线时, 把所有失败 tile 挑出来再试一次
+  if (typeof window !== "undefined") {
+    window.addEventListener("online", () => {
+      document.querySelectorAll(".tile.is-error img[data-src]").forEach(img => {
+        img.dataset.tries = "0";
+        img.parentElement?.classList.remove("is-error");
+        queue.push(img);
+      });
+      next();
+    });
+  }
+
   return {
     observe(node) { observer.observe(node); },
+    retry(node) {
+      node.dataset.tries = "0";
+      node.parentElement?.classList.remove("is-error");
+      queue.push(node);
+      next();
+    },
     reset() { queue.length = 0; }
   };
 })();
@@ -149,7 +207,52 @@ const LazyImages = (() => {
 // ============================================================
 async function loadMeta() {
   state.meta = await api("/meta");
+  state.role = state.meta?.role === "guest" ? "guest" : "admin";
   renderTypeTabs();
+  renderRoleBadge();
+}
+
+function isGuest() { return state.role !== "admin"; }
+
+function renderRoleBadge() {
+  const meta = $("#topbarMeta");
+  meta.innerHTML = "";
+  if (isGuest()) {
+    meta.append(
+      el("span", { class: "status-dot status-dot--warn" }),
+      el("span", { class: "topbar__status", text: "访客 / 只读" }),
+      el("button", {
+        class: "btn btn--ghost topbar__login",
+        title: "以管理员登录",
+        onClick: triggerLogin,
+      }, "登录"),
+    );
+  } else {
+    meta.append(
+      el("span", { class: "status-dot status-dot--ok" }),
+      el("span", { class: "topbar__status", text: "管理员 / Basic Auth" }),
+    );
+  }
+}
+
+async function triggerLogin() {
+  // 命中需要 admin 的端点; 浏览器自动弹 Basic Auth 对话框。
+  try {
+    await api("/login");
+    toast("已登录", "ok");
+    await loadMeta();
+    renderCenter();
+    renderPreview();
+  } catch (e) {
+    if (e.status === 429) {
+      toast(`登录已锁定: ${e.message}`, "err");
+    } else if (e.status === 401) {
+      // 用户取消 / 输入错: 浏览器已经弹过了, 这里不再重复提示
+      toast("登录失败或已取消", "warn");
+    } else {
+      toast(`登录异常: ${e.message}`, "err");
+    }
+  }
 }
 
 function renderTypeTabs() {
@@ -295,13 +398,17 @@ function renderCenterHead() {
     );
   } else if (state.mode === "batch") {
     actions.append(
+      buildThumbSizer(),
       el("button", { class: "btn btn--ghost", onClick: () => { state.mode = "browse"; renderCenter(); } }, "返回"),
     );
   } else {
-    actions.append(
-      el("button", { class: "btn", onClick: openSingleUpload }, "上传单张"),
-      el("button", { class: "btn", onClick: openBatchUpload }, "批量上传"),
-    );
+    actions.append(buildThumbSizer());
+    if (!isGuest()) {
+      actions.append(
+        el("button", { class: "btn", onClick: openSingleUpload }, "上传单张"),
+        el("button", { class: "btn", onClick: openBatchUpload }, "批量上传"),
+      );
+    }
   }
 
   head.append(titleBlock, actions);
@@ -323,7 +430,7 @@ function renderCenterBody() {
     return;
   }
 
-  body.append(renderDropzone());
+  if (!isGuest()) body.append(renderDropzone());
 
   const key = `${state.type}|${state.selectedCharId}`;
   const images = state.imagesByCharId[key];
@@ -354,7 +461,16 @@ function renderTile(img, isLandscape) {
     role: "button",
     tabindex: "0",
     "aria-label": `${img.hash_id} ${img.name}`,
-    onClick: () => selectImage(img),
+    onClick: (e) => {
+      // 加载失败时点击 = 重试; 否则 = 选中。
+      const tile = e.currentTarget;
+      if (tile.classList.contains("is-error")) {
+        const i = tile.querySelector("img[data-src]");
+        if (i) LazyImages.retry(i);
+        return;
+      }
+      selectImage(img);
+    },
     onKeydown: e => { if (e.key === "Enter") selectImage(img); },
   },
     el("div", { class: "tile__skeleton" }),
@@ -373,13 +489,13 @@ function renderTile(img, isLandscape) {
         "aria-label": "下载原图",
         onClick: e => e.stopPropagation(),
       }, "⤓"),
-      el("button", {
+      !isGuest() && el("button", {
         class: "tile-act",
         title: "编辑裁切",
         "aria-label": "编辑裁切",
         onClick: e => { e.stopPropagation(); editExisting(img); },
       }, "✎"),
-      el("button", {
+      !isGuest() && el("button", {
         class: "tile-act tile-act--danger",
         title: "删除",
         "aria-label": "删除",
@@ -927,6 +1043,24 @@ function renderPreview() {
   const foot = $("#previewFoot");
   foot.innerHTML = "";
 
+  // 访客模式: 完全不渲染预览, 不触发任何后端 CPU 占用。
+  if (isGuest()) {
+    titleEl.textContent = "预览";
+    subEl.textContent = "访客模式 / 仅浏览";
+    setPreviewSrc(null, false);
+    const ph = $("#previewPlaceholder");
+    if (ph) {
+      ph.querySelector(".preview__placeholder-title").textContent = "GUEST MODE";
+      ph.querySelector(".preview__placeholder-sub").textContent =
+        "访客只能浏览图片列表，预览功能需登录后开启。";
+    }
+    foot.append(
+      el("span", { class: "muted", text: "访客模式 — 不渲染预览" }),
+      el("button", { class: "btn btn--ghost", onClick: triggerLogin }, "登录解锁"),
+    );
+    return;
+  }
+
   // decide what to render
   const needPreview = (
     (state.mode === "browse" && state.selectedImage && state.selectedCharId) ||
@@ -1045,9 +1179,10 @@ function setPreviewSrc(url, loading) {
 
 let previewTimer = null;
 function triggerPreview(force = false) {
+  // 访客一律不发预览请求, 防止任何路径意外触达 /api/preview。
+  if (isGuest()) return setPreviewSrc(null, false);
   const url = buildPreviewUrl();
   if (!url) return setPreviewSrc(null, false);
-  // debounce frequent changes (crop spam)
   clearTimeout(previewTimer);
   previewTimer = setTimeout(() => {
     state.previewSeq++;
@@ -1083,6 +1218,7 @@ function loadLayout() {
     const v = JSON.parse(raw);
     if (typeof v.side === "number") setPaneWidth("--side-w", v.side, 200, 480);
     if (typeof v.preview === "number") setPaneWidth("--preview-w", v.preview, 280, 720);
+    if (typeof v.thumb === "number") setThumbSize(v.thumb);
   } catch (_) {}
 }
 
@@ -1091,8 +1227,54 @@ function saveLayout() {
     localStorage.setItem(LAYOUT_KEY, JSON.stringify({
       side: parsePx(getComputedStyle(document.documentElement).getPropertyValue("--side-w")),
       preview: parsePx(getComputedStyle(document.documentElement).getPropertyValue("--preview-w")),
+      thumb: state.thumbSize,
     }));
   } catch (_) {}
+}
+
+const THUMB_MIN = 80;
+const THUMB_MAX = 280;
+
+function setThumbSize(px) {
+  if (px == null) {
+    state.thumbSize = null;
+    document.documentElement.style.removeProperty("--tile-min");
+    return;
+  }
+  const v = Math.max(THUMB_MIN, Math.min(THUMB_MAX, Math.round(px)));
+  state.thumbSize = v;
+  document.documentElement.style.setProperty("--tile-min", `${v}px`);
+}
+
+function buildThumbSizer() {
+  const slider = el("input", {
+    type: "range",
+    min: String(THUMB_MIN),
+    max: String(THUMB_MAX),
+    step: "4",
+    value: String(state.thumbSize ?? 148),
+    "aria-label": "缩略图大小",
+    title: "拖动调整缩略图大小; 双击重置为响应式默认",
+    onInput: e => {
+      setThumbSize(parseInt(e.target.value, 10));
+      const v = sizer.querySelector(".thumb-sizer__val");
+      if (v) v.textContent = `${state.thumbSize}px`;
+    },
+    onChange: () => saveLayout(),
+    onDblclick: () => {
+      setThumbSize(null);
+      saveLayout();
+      // 重渲染让 slider 反映默认值
+      renderCenterHead();
+    },
+  });
+  const sizer = el("div", { class: "thumb-sizer", role: "group" },
+    el("span", { class: "thumb-sizer__ico", text: "▦" }),
+    slider,
+    el("span", { class: "thumb-sizer__val",
+      text: state.thumbSize == null ? "auto" : `${state.thumbSize}px` }),
+  );
+  return sizer;
 }
 
 function parsePx(s) { const n = parseFloat(s); return Number.isFinite(n) ? n : 0; }

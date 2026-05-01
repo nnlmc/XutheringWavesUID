@@ -227,6 +227,12 @@ input[type="search"] {
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
+.topbar__login {
+  margin-left: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
 .status-dot {
   width: 7px; height: 7px;
   border-radius: 50%;
@@ -400,6 +406,8 @@ input[type="search"] {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  /* grid item 默认 min-height:auto, 子级 overflow:auto 会失效 */
+  min-height: 0;
   background: var(--bg-0);
   position: relative;
 }
@@ -541,10 +549,13 @@ input[type="search"] {
    THUMBNAIL GRID
    ============================================================ */
 
+:root { --tile-min: 148px; }
+
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 14px;
+  /* min 列宽由 --tile-min 控制, 用户拖动滑块可覆盖 */
+  grid-template-columns: repeat(auto-fill, minmax(var(--tile-min), 1fr));
+  gap: 12px;
 }
 
 .tile {
@@ -588,6 +599,25 @@ input[type="search"] {
 @keyframes shimmer {
   0% { background-position: 100% 0; }
   100% { background-position: -100% 0; }
+}
+.tile.is-error .tile__skeleton {
+  animation: none;
+  background: var(--bg-2);
+}
+.tile.is-error::before {
+  content: "加载失败 · 点击重试";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--err);
+  letter-spacing: 0.06em;
+  text-align: center;
+  padding: 0 12px;
+  z-index: 1;
 }
 .tile__hash {
   position: absolute;
@@ -826,8 +856,8 @@ input[type="search"] {
 .batch-bar__check input { accent-color: var(--accent); }
 .batch-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(var(--tile-min), 1fr));
+  gap: 10px;
 }
 .staging-card {
   background: var(--bg-1);
@@ -1115,6 +1145,78 @@ input[type="search"] {
 
 
 /* ============================================================
+   THUMBNAIL SIZE SLIDER
+   ============================================================ */
+.thumb-sizer {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  background: var(--bg-2);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-2);
+  height: 30px;
+  user-select: none;
+}
+.thumb-sizer__ico {
+  font-size: 11px;
+  color: var(--fg-3);
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+}
+.thumb-sizer__val {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--fg-2);
+  min-width: 28px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.thumb-sizer input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 110px;
+  height: 14px;
+  background: transparent;
+  cursor: pointer;
+}
+.thumb-sizer input[type="range"]:focus { outline: none; }
+.thumb-sizer input[type="range"]::-webkit-slider-runnable-track {
+  height: 2px;
+  background: var(--line-2);
+  border-radius: 2px;
+}
+.thumb-sizer input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-top: -5px;
+  cursor: grab;
+  box-shadow: 0 0 0 4px transparent;
+  transition: box-shadow var(--t-fast);
+}
+.thumb-sizer input[type="range"]:hover::-webkit-slider-thumb,
+.thumb-sizer input[type="range"]:active::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+.thumb-sizer input[type="range"]::-moz-range-track {
+  height: 2px;
+  background: var(--line-2);
+  border-radius: 2px;
+}
+.thumb-sizer input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: grab;
+}
+
+
+/* ============================================================
    MOBILE TRIGGERS + SCRIM (only shown on narrow viewports)
    ============================================================ */
 .mobile-trigger {
@@ -1211,8 +1313,9 @@ input[type="search"] {
   .center__title h2 { font-size: 13px; }
   .center__body { padding: 12px 14px 80px 14px; }
 
-  .grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
-  .batch-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+  :root { --tile-min: 116px; }
+  .grid { gap: 8px; }
+  .batch-grid { gap: 8px; }
 
   .cropper__bar { padding: 10px; }
   .cropper__readout { font-size: 10px; gap: 12px; }
@@ -1234,6 +1337,8 @@ input[type="search"] {
 
 /* very narrow phones */
 @media (max-width: 420px) {
+  :root { --tile-min: 96px; }
   .topbar__mark { display: none; }
-  .grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+  .grid { gap: 6px; }
+  .batch-grid { gap: 6px; }
 }

@@ -16,7 +16,13 @@ from gsuid_core.logger import logger
 from gsuid_core.web_app import app
 from starlette.responses import FileResponse, HTMLResponse, Response
 
-from .auth import is_enabled, require_auth
+from .auth import (
+    auth_or_guest,
+    check_preview_rate,
+    is_enabled,
+    is_guest_view_enabled,
+    require_auth,
+)
 from . import storage as st
 
 
@@ -42,6 +48,8 @@ def _try_delete_orb_cache(p: Path) -> None:
 _DISABLED_HTML = """<!DOCTYPE html>
 <html lang="zh-CN"><head>
 <meta charset="UTF-8"/>
+<meta name="robots" content="noindex,nofollow"/>
+<meta name="referrer" content="no-referrer"/>
 <title>面板图编辑器未启用</title>
 <style>
   html,body{margin:0;height:100%;background:#07090d;color:#c7cdd9;
@@ -73,14 +81,16 @@ _DISABLED_HTML = """<!DOCTYPE html>
 
 @app.get("/waves/panel-edit/")
 async def panel_edit_index(request: Request):
-    """无需鉴权的入口。
-
-    - 未配置密码时返回提示页, 引导用户去控制台设置 WavesPanelEditPassword。
-    - 配置后, 让浏览器走 Basic Auth (二次请求会带 Authorization 进入正常 SPA)。
+    """入口页。
+    - 未配置密码 → 提示页。
+    - 配置后:
+      - 访客模式开启 → 直接返 SPA, 不弹 Basic Auth, 由前端区分访客/管理员。
+      - 否则要求 Basic Auth (401 让浏览器弹登录框)。
     """
     if not is_enabled():
         return HTMLResponse(_DISABLED_HTML, status_code=200)
-    require_auth(request)  # 触发 401 让浏览器弹出登录框
+    if not is_guest_view_enabled():
+        require_auth(request)
     index = _STATIC_DIR / "index.html"
     if not index.exists():
         return HTMLResponse("<h1>Panel editor static files missing.</h1>", status_code=500)
@@ -88,8 +98,9 @@ async def panel_edit_index(request: Request):
 
 
 @app.get("/waves/panel-edit/static/{name:path}")
-async def panel_edit_static(name: str, _: None = Depends(require_auth)):
-    # 只允许扁平文件名, 不接受路径分隔符 / .. 等。
+async def panel_edit_static(name: str):
+    """SPA 静态资源 (CSS/JS): 永远 public, 仅扁平文件名。
+    内容公开 (开源), 无需鉴权; 访客模式下 SPA 本身要能加载。"""
     if not st.is_safe_name(name):
         raise HTTPException(404, "Not found")
     target = st.safe_join(_STATIC_DIR, name)
@@ -103,11 +114,17 @@ async def panel_edit_static(name: str, _: None = Depends(require_auth)):
     return FileResponse(target, media_type=media_type)
 
 
+@app.get("/waves/panel-edit/api/login")
+async def api_login(_: None = Depends(require_auth)):
+    """仅用于强制弹 Basic Auth: 访客模式下前端"登录"按钮命中此处。"""
+    return {"role": "admin"}
+
+
 # ------------------------- 列表 -------------------------
 
 
 @app.get("/waves/panel-edit/api/folders")
-async def api_folders(type: str, _: None = Depends(require_auth)):
+async def api_folders(type: str, _: str = Depends(auth_or_guest)):
     if not st.is_valid_type(type):
         raise HTTPException(400, "invalid type")
     folders = st.list_folders(type)
@@ -115,7 +132,7 @@ async def api_folders(type: str, _: None = Depends(require_auth)):
 
 
 @app.get("/waves/panel-edit/api/images")
-async def api_images(type: str, char_id: str, _: None = Depends(require_auth)):
+async def api_images(type: str, char_id: str, _: str = Depends(auth_or_guest)):
     folder = st.safe_char_dir(type, char_id)
     if folder is None:
         raise HTTPException(400, "invalid type or char_id")
@@ -134,15 +151,19 @@ async def api_images(type: str, char_id: str, _: None = Depends(require_auth)):
 # ------------------------- 缩略图 / 原图 -------------------------
 
 
+_THUMB_SIZES = {180, 360, 720}
+
+
 @app.get("/waves/panel-edit/api/thumb")
 async def api_thumb(
     type: str,
     char_id: str,
     name: str,
     size: int = 360,
-    _: None = Depends(require_auth),
+    _: str = Depends(auth_or_guest),
 ):
-    if size <= 0 or size > 800:
+    # 缩略图档位收敛, 防 disk-fill: 只接受三档之一, 其它一律 360。
+    if size not in _THUMB_SIZES:
         size = 360
     target = st.safe_target_image(type, char_id, name)
     if target is None or not target.is_file():
@@ -158,7 +179,7 @@ async def api_image(
     type: str,
     char_id: str,
     name: str,
-    _: None = Depends(require_auth),
+    _: str = Depends(auth_or_guest),
 ):
     target = st.safe_target_image(type, char_id, name)
     if target is None or not target.is_file():
@@ -392,6 +413,7 @@ async def api_delete(payload: dict, _: None = Depends(require_auth)):
 
 @app.get("/waves/panel-edit/api/preview")
 async def api_preview(
+    request: Request,
     type: str,
     char_id: str,
     name: str,
@@ -399,8 +421,9 @@ async def api_preview(
     _: None = Depends(require_auth),
 ):
     """type=card -> 角色面板预览; type=bg/stamina -> MR 预览。
-    name = 已入库图片的文件名。
+    访客不渲染 (走 require_auth), 避免占用 Playwright/CPU 资源。
     """
+    check_preview_rate(request)
     from .preview import render_panel_preview, render_mr_preview
 
     target = st.safe_target_image(type, char_id, name)
@@ -424,6 +447,7 @@ async def api_preview(
 
 @app.get("/waves/panel-edit/api/preview-tmp")
 async def api_preview_tmp(
+    request: Request,
     type: str,
     char_id: str,
     token: str,
@@ -431,6 +455,7 @@ async def api_preview_tmp(
     _: None = Depends(require_auth),
 ):
     """裁剪/上传过程中, 用 tmp 图渲染预览。"""
+    check_preview_rate(request)
     from .preview import render_panel_preview, render_mr_preview
 
     if not st.is_valid_type(type):
@@ -461,8 +486,8 @@ async def api_preview_tmp(
 
 
 @app.get("/waves/panel-edit/api/meta")
-async def api_meta(_: None = Depends(require_auth)):
-    """前端启动时拉取: 类型列表 / 各类型路径标签 / id->name 字典。"""
+async def api_meta(role: str = Depends(auth_or_guest)):
+    """前端启动时拉取: 类型 / id->name / 当前角色 (admin|guest)。"""
     from ...utils.name_convert import ensure_data_loaded, id2name
     try:
         ensure_data_loaded()
@@ -475,4 +500,6 @@ async def api_meta(_: None = Depends(require_auth)):
             {"key": "stamina", "label": "MR 立绘 (custom_mr_role_pile)", "preview": "mr"},
         ],
         "id2name": dict(id2name),
+        "role": role,
+        "guest_view_enabled": is_guest_view_enabled(),
     }
