@@ -11,7 +11,6 @@ from gsuid_core.models import Event
 from gsuid_core.segment import MessageSegment
 from gsuid_core.data_store import get_res_path
 
-from ..utils.at_help import is_intl_uid, intl_unavailable_msg
 from ..utils.cache import TimedCache
 from .gacha_handler import fetch_mcgf_data, merge_gacha_data
 from .get_gachalogs import save_gachalogs, export_gachalogs, import_gachalogs
@@ -63,8 +62,6 @@ async def get_gacha_log_by_link(bot: Bot, ev: Event):
     uid = await WavesBind.get_uid_by_game(ev.user_id, ev.bot_id)
     if not uid:
         return await bot.send(ERROR_CODE[WAVES_CODE_103])
-    if is_intl_uid(uid):
-        return await bot.send(intl_unavailable_msg(uid))
 
     # 检查冷却
     remaining_time = can_import_gacha(ev.user_id, uid)
@@ -162,8 +159,6 @@ async def send_gacha_log_card_info(bot: Bot, ev: Event):
     uid = await WavesBind.get_uid_by_game(ev.user_id, ev.bot_id)
     if not uid:
         return await bot.send(ERROR_CODE[WAVES_CODE_103])
-    if is_intl_uid(uid):
-        return await bot.send(intl_unavailable_msg(uid))
     _, ck = await waves_api.get_ck_result(uid, ev.user_id, ev.bot_id)
     if not ck:
         return await bot.send(ERROR_CODE[WAVES_CODE_102])
@@ -185,8 +180,6 @@ async def get_gacha_log_by_file(bot: Bot, ev: Event):
     if not uid:
         await bot.logger.info(f"[JSON导入抽卡] 用户 {ev.user_id} 未绑定UID，忽略此次导入")
         return
-    if is_intl_uid(uid):
-        return await bot.send(intl_unavailable_msg(uid))
     _, ck = await waves_api.get_ck_result(uid, ev.user_id, ev.bot_id)
     if not ck:
         await bot.logger.info(f"[JSON导入抽卡] 用户 {ev.user_id} (UID:{uid}) 未登录或Cookie失效，忽略此次导入")
@@ -215,8 +208,6 @@ async def send_export_gacha_info(bot: Bot, ev: Event):
     uid = await WavesBind.get_uid_by_game(ev.user_id, ev.bot_id)
     if not uid:
         return await bot.send(ERROR_CODE[WAVES_CODE_103])
-    if is_intl_uid(uid):
-        return await bot.send(intl_unavailable_msg(uid))
     _, ck = await waves_api.get_ck_result(uid, ev.user_id, ev.bot_id)
     if not ck:
         return await bot.send(ERROR_CODE[WAVES_CODE_102])
