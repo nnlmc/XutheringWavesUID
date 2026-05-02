@@ -13,6 +13,7 @@ from PIL import Image
 
 from gsuid_core.logger import logger
 
+from ...utils import name_convert
 from ...utils.name_convert import easy_id_to_name
 from ...utils.resource.RESOURCE_PATH import (
     BAKE_PATH,
@@ -132,26 +133,42 @@ def hash_id_for(name: str) -> str:
 
 
 def list_folders(t: str) -> List[dict]:
-    """列出目标类型下所有合法 char 文件夹 (不合法命名直接忽略)。"""
+    """列出目标类型下所有合法 char_id 条目。
+
+    - 磁盘上有目录的: 真实 count
+    - id2name 里有但磁盘没目录的: 合成 count=0 占位 (上传时 mkdir 会自动建)
+    - 不合法命名的目录: 忽略
+    """
     base = base_dir_for(t)
-    if not base.exists():
-        return []
-    out = []
-    for d in sorted(base.iterdir(), key=lambda p: p.name):
-        if not d.is_dir():
-            continue
-        char_id = d.name
-        if not is_safe_char_id(char_id):
-            continue
-        count = sum(1 for _ in iter_images(d))
-        out.append(
-            {
+    seen: dict = {}
+
+    if base.exists():
+        for d in sorted(base.iterdir(), key=lambda p: p.name):
+            if not d.is_dir():
+                continue
+            char_id = d.name
+            if not is_safe_char_id(char_id):
+                continue
+            seen[char_id] = {
                 "char_id": char_id,
                 "char_name": easy_id_to_name(char_id, char_id),
-                "count": count,
+                "count": sum(1 for _ in iter_images(d)),
             }
-        )
-    return out
+
+    try:
+        name_convert.ensure_data_loaded()
+        for char_id in name_convert.id2name.keys():
+            if char_id in seen or not is_safe_char_id(char_id):
+                continue
+            seen[char_id] = {
+                "char_id": char_id,
+                "char_name": easy_id_to_name(char_id, char_id),
+                "count": 0,
+            }
+    except Exception as e:
+        logger.debug(f"[鸣潮·面板编辑] id2name 合并跳过: {e}")
+
+    return sorted(seen.values(), key=lambda x: x["char_id"])
 
 
 def list_images(t: str, char_id: str) -> List[dict]:
