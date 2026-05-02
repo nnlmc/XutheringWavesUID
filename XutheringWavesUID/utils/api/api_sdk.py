@@ -226,10 +226,12 @@ def _adapt_liveness(base: Dict[str, Any]) -> LivenessData:
 
 
 def _adapt_battle_pass(bp: Dict[str, Any]) -> BattlePassData:
+    # 国际服直接读 Level（先约电台等级）；Exp/ExpLimit 是经验值，本插件不使用。
+    # 下游仅消费 cur，total 无人引用，置 0 占位。
     return BattlePassData(
         name="电台",
-        cur=_safe_int(bp.get("Exp")),
-        total=_safe_int(bp.get("ExpLimit")),
+        cur=_safe_int(bp.get("Level")),
+        total=0,
     )
 
 
