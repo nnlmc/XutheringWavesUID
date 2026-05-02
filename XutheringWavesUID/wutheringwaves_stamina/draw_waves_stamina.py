@@ -136,6 +136,9 @@ async def _process_uid_launcher(uid, ev):
 
     panel = await fetch_launcher_panel(user_id, bot_id, uid)
     if panel is None:
+        logger.info(
+            f"[鸣潮][每日信息]国际服账号失效，无法拉取面板 uid={uid} user_id={user_id} bot_id={bot_id}"
+        )
         try:
             await WavesStaminaRecord.update_ck_valid(
                 user_id=user_id,

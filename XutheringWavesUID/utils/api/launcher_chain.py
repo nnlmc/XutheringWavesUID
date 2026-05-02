@@ -24,18 +24,18 @@ async def fetch_launcher_panel(
     """
     waves_user = await WavesUser.select_waves_user(uid, user_id, bot_id, game_id=WAVES_GAME_ID)
     if not waves_user:
-        logger.debug(f"[launcher_chain] 没有 WavesUser uid={uid} user_id={user_id}")
+        logger.info(f"[launcher_chain] 没有 WavesUser uid={uid} user_id={user_id}")
         return None
     if not waves_user.cookie:
-        logger.debug(f"[launcher_chain] WavesUser.cookie 为空 uid={uid}")
+        logger.info(f"[launcher_chain] WavesUser.cookie 为空 uid={uid}")
         return None
     if waves_user.status == "无效":
-        logger.debug(f"[launcher_chain] WavesUser 已被标记为无效 uid={uid}")
+        logger.info(f"[launcher_chain] WavesUser 已被标记为无效 uid={uid}")
         return None
 
     region = await WavesUserSdk.get_region(user_id, bot_id, uid)
     if not region:
-        logger.debug(f"[launcher_chain] WavesUserSdk 没有 region 记录 uid={uid}")
+        logger.info(f"[launcher_chain] WavesUserSdk 没有 region 记录 uid={uid}")
         return None
 
     return await _fetch_with_refresh(
