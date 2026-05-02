@@ -4,7 +4,8 @@ from gsuid_core.models import Event
 
 from .set_config import set_waves_user_value
 from .wutheringwaves_config import WutheringWavesConfig, ShowConfig
-from ..utils.database.models import WavesBind, WavesLangSettings
+from ..utils.constants import WAVES_GAME_ID
+from ..utils.database.models import WavesBind, WavesLangSettings, WavesUser
 
 sv_self_config = SV("鸣潮配置")
 
@@ -34,10 +35,12 @@ async def send_config_ev(bot: Bot, ev: Event):
         return await bot.send((" " if at_sender else "") + msg, at_sender)
 
     if "体力背景" in ev.text:
-        from ..utils.waves_api import waves_api
-
-        ck = await waves_api.get_self_waves_ck(uid, ev.user_id, ev.bot_id)
-        if not ck:
+        # 只是写库，存在 WavesUser 行就够（CK 或 launcher SDK 登录均会建行），
+        # 没必要走 get_self_waves_ck 的活性校验
+        waves_user = await WavesUser.select_waves_user(
+            uid, ev.user_id, ev.bot_id, game_id=WAVES_GAME_ID
+        )
+        if not waves_user:
             from ..utils.error_reply import ERROR_CODE, WAVES_CODE_102
 
             msg = f"当前特征码：{uid}\n{ERROR_CODE[WAVES_CODE_102].rstrip(chr(10))}"

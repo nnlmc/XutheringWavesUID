@@ -1,4 +1,5 @@
 import time
+import random
 import asyncio
 from typing import Dict
 from pathlib import Path
@@ -260,7 +261,7 @@ async def _draw_stamina_img(ev: Event, valid: Dict, locale: str = "") -> Image.I
     force_not_use_bg = False
     force_not_use_custom = False
 
-    if user and user.stamina_bg_value and not from_sdk:
+    if user and user.stamina_bg_value:
         logger.debug(f"[鸣潮][每日信息]使用自定义体力背景设置: {user.stamina_bg_value}")
         force_use_bg = "背景" in user.stamina_bg_value
         force_not_use_bg = "立绘" in user.stamina_bg_value
@@ -270,23 +271,29 @@ async def _draw_stamina_img(ev: Event, valid: Dict, locale: str = "") -> Image.I
         )
         char_id = char_name_to_char_id(stamina_bg_value)
         if char_id in SPECIAL_CHAR:
-            ck = await waves_api.get_self_waves_ck(daily_info.roleId, ruser_id(ev), ev.bot_id)
-            if ck:
-                for char_id in SPECIAL_CHAR[char_id]:
-                    role_detail_info = await waves_api.get_role_detail_info(char_id, daily_info.roleId, ck)
-                    if not role_detail_info.success:
-                        continue
-                    role_detail_info = role_detail_info.data
-                    if (
-                        not isinstance(role_detail_info, Dict)
-                        or "role" not in role_detail_info
-                        or role_detail_info["role"] is None
-                        or "level" not in role_detail_info
-                        or role_detail_info["level"] is None
-                    ):
-                        continue
-                    pile_id = char_id
-                    break
+            variants = SPECIAL_CHAR[char_id]
+            # 国际服走 SDK 路径，没有可用 ck 校验角色拥有情况，直接跳过校验逻辑
+            if not from_sdk:
+                ck = await waves_api.get_self_waves_ck(daily_info.roleId, ruser_id(ev), ev.bot_id)
+                if ck:
+                    for vid in variants:
+                        role_detail_info = await waves_api.get_role_detail_info(vid, daily_info.roleId, ck)
+                        if not role_detail_info.success:
+                            continue
+                        role_detail_info = role_detail_info.data
+                        if (
+                            not isinstance(role_detail_info, Dict)
+                            or "role" not in role_detail_info
+                            or role_detail_info["role"] is None
+                            or "level" not in role_detail_info
+                            or role_detail_info["level"] is None
+                        ):
+                            continue
+                        pile_id = vid
+                        break
+            if pile_id is None:
+                # 国际服 / 无 ck / 所有变体校验均失败，退化为随机选一个变体
+                pile_id = random.choice(variants)
         else:
             pile_id = char_id
 
