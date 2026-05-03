@@ -808,6 +808,17 @@ const POOL_ABBR = {
 
 const WD = ["日","一","二","三","四","五","六"];
 
+// HTML 转义: 所有用户可控的数据 (角色名等) 渲染前必须经过这个函数,
+// 即便目前来源是库洛 API, 纵深防御挡住未来 API/插件中间件污染。
+function esc(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function showToast(msg, ms=1800) {
   $toast.textContent = msg;
   $toast.classList.add('show');
@@ -871,11 +882,16 @@ function tagsFor(name, fs) {
 
 function avatarHTML(item, big=false) {
   const rid = item.resourceId;
+  // resourceId 必须为纯数字, 否则当作无效, 防止注入到 src/onerror
+  const ridSafe = (typeof rid === 'number' && Number.isFinite(rid)) || /^\d+$/.test(String(rid || ''));
   const isWeapon = item.resourceType === '武器';
-  const url = rid ? ASSET(isWeapon ? 'weapon' : 'avatar', rid) : '';
+  const url = ridSafe ? ASSET(isWeapon ? 'weapon' : 'avatar', rid) : '';
   const placeholder = (item.name || '?').slice(0, 1);
-  if (!rid) return `<div class="pl">${placeholder}</div>`;
-  return `<img src="${url}" alt="${item.name||''}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'pl',textContent:'${placeholder}'}))">`;
+  if (!ridSafe) return `<div class="pl">${esc(placeholder)}</div>`;
+  // onerror 里的字符串通过 dataset 传递, 避免把 placeholder 拼进 JS 字面量造成注入
+  return `<img src="${esc(url)}" alt="${esc(item.name || '')}" loading="lazy"
+    data-pl="${esc(placeholder)}"
+    onerror="var d=document.createElement('div');d.className='pl';d.textContent=this.dataset.pl||'?';this.replaceWith(d)">`;
 }
 
 // 头像兜底：随机一个 5★ 角色, 类似 PIL 版的随机头像
@@ -894,7 +910,10 @@ function renderHeader(base, dataTime, now) {
     [base.activeDays ?? '—', '活跃天数'],
     [base.roleNum ?? '—', '角色'],
   ];
-  const namePart = base.name || `特征码 ${base.uid}`;
+  const namePart = esc(base.name || `特征码 ${base.uid}`);
+  const uidSafe = esc(base.uid);
+  const dataTimeSafe = esc(dataTime || now);
+  const nowSafe = esc(now);
   const fbId = FALLBACK_AVATAR_IDS[Math.floor(Math.random() * FALLBACK_AVATAR_IDS.length)];
   const avatarFallback = ASSET('avatar', fbId);
   const avatarSrc = base.qq_avatar || avatarFallback;
@@ -917,15 +936,15 @@ function renderHeader(base, dataTime, now) {
         </div>
         <div class="user-meta">
           <h2 class="user-name">${namePart}</h2>
-          <div class="user-uid">${base.uid}</div>
+          <div class="user-uid">${uidSafe}</div>
           <div class="stats-row">
-            ${stats.map(([v,l]) => `<div class="stat-cell"><span class="num">${v}</span><span class="lbl">${l}</span></div>`).join('')}
+            ${stats.map(([v,l]) => `<div class="stat-cell"><span class="num">${esc(v)}</span><span class="lbl">${esc(l)}</span></div>`).join('')}
           </div>
         </div>
       </div>
       <div class="timestamp-line">
-        <span><span class="pulse"></span>最后更新于 ${dataTime || now}</span>
-        <span>查看时间 ${now}</span>
+        <span><span class="pulse"></span>最后更新于 ${dataTimeSafe}</span>
+        <span>查看时间 ${nowSafe}</span>
       </div>
     </header>
   `;
@@ -938,8 +957,8 @@ function renderTabs(pools) {
     <nav class="tab-strip"><div class="inner">
       ${list.map((p, i) => `
         <button class="tab ${i === 0 ? 'active' : ''}" data-target="pool-${i}">
-          ${POOL_ABBR[p.name] || p.name}
-          ${p.five_count ? `<span class="badge">${p.five_count}</span>` : ''}
+          ${esc(POOL_ABBR[p.name] || p.name)}
+          ${p.five_count ? `<span class="badge">${esc(p.five_count)}</span>` : ''}
         </button>
       `).join('')}
     </div></nav>
@@ -953,7 +972,7 @@ function renderPool(pool, idx, active) {
   if (!pool.total) {
     return `
       <section class="pool-section ${active ? 'active' : ''}" id="pool-${idx}">
-        <div class="empty-pool">「${pool.name}」暂无唤取数据</div>
+        <div class="empty-pool">「${esc(pool.name)}」暂无唤取数据</div>
       </section>`;
   }
   const groups = {};
@@ -972,11 +991,11 @@ function renderPool(pool, idx, active) {
   return `
     <section class="pool-section ${active ? 'active' : ''}" id="pool-${idx}">
       <div class="pool-stats">
-        <div class="metric"><div class="v">${pool.total}</div><div class="l">总抽数</div></div>
-        <div class="metric"><div class="v gold">${pool.five_count}</div><div class="l">五星</div></div>
-        <div class="metric"><div class="v gold">${pool.up_count || '·'}</div><div class="l">UP</div></div>
-        <div class="metric"><div class="v ${pityClass(pool.remain)}">${pool.remain}</div><div class="l">未出金</div></div>
-        <div class="metric range"><div class="l">${rangeShort}</div></div>
+        <div class="metric"><div class="v">${esc(pool.total)}</div><div class="l">总抽数</div></div>
+        <div class="metric"><div class="v gold">${esc(pool.five_count)}</div><div class="l">五星</div></div>
+        <div class="metric"><div class="v gold">${esc(pool.up_count || '·')}</div><div class="l">UP</div></div>
+        <div class="metric"><div class="v ${pityClass(pool.remain)}">${esc(pool.remain)}</div><div class="l">未出金</div></div>
+        <div class="metric range"><div class="l">${esc(rangeShort)}</div></div>
       </div>
       ${orderedKeys.map(k => renderDateGroup(k, groups[k], pool.name)).join('')}
     </section>
@@ -989,9 +1008,9 @@ function renderDateGroup(key, fives, poolName) {
     <div class="date-group">
       <div class="date-head">
         <div class="date-chip">
-          <span class="day">${f.day}</span>
-          <span class="ym">${f.ym}</span>
-          <span class="wd">${f.wd}</span>
+          <span class="day">${esc(f.day)}</span>
+          <span class="ym">${esc(f.ym)}</span>
+          <span class="wd">${esc(f.wd)}</span>
         </div>
         <div class="date-line"></div>
       </div>
@@ -1017,14 +1036,14 @@ function render5Star(fs, poolName) {
       <div class="${cls}">
         <div class="fs-icon">${avatarHTML(fs)}</div>
         <div class="fs-meta">
-          <span class="fs-name">${fs.name || '未知'}</span>
+          <span class="fs-name">${esc(fs.name || '未知')}</span>
           <span class="fs-tags">${tags}</span>
         </div>
         <div class="bar-stack">
           <div class="pity-bar"><i class="${pc}" style="width:${pct}%"></i></div>
-          <span class="fs-time">${time}</span>
+          <span class="fs-time">${esc(time)}</span>
         </div>
-        <span class="fs-pity ${pc}">${fs.pity}</span>
+        <span class="fs-pity ${pc}">${esc(fs.pity)}</span>
         ${caret}
       </div>
       ${render4Tray(fs.top_4stars, isStub)}
@@ -1040,9 +1059,9 @@ function render4Tray(items, isStub) {
   return `
     <div class="tray">
       ${items.map(it => `
-        <div class="tray-item" title="${it.name} ×${it.count}">
+        <div class="tray-item" title="${esc(it.name + ' ×' + it.count)}">
           <div class="ic">${avatarHTML(it)}</div>
-          <span class="ct">×${it.count}</span>
+          <span class="ct">×${esc(it.count)}</span>
         </div>
       `).join('')}
     </div>

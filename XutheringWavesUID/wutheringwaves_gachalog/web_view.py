@@ -88,7 +88,7 @@ async def make_gacha_web_url(uid: str, ev: Event) -> Tuple[Optional[str], str]:
 
     gacha_path = PLAYER_PATH / str(uid) / "gacha_logs.json"
     if not gacha_path.exists():
-        return None, f"[鸣潮] 你还没有抽卡记录噢!\n 请发送 {PREFIX}导入抽卡链接 后重试!"
+        return None, f"[鸣潮] 你还没有抽卡记录噢!\n 请查看 {PREFIX}抽卡帮助 中的提示导入!"
 
     base = await _build_account_info(uid, ev)
     token = secrets.token_urlsafe(16)
@@ -217,11 +217,13 @@ p{font-size:13px;color:#8b95a7;line-height:1.7;margin:6px 0}</style>
 
 @app.get("/waves/gacha/{token}")
 async def gacha_web_index(token: str):
+    # 过期/未启用都用 200 返回 — 上游 nginx 常配 proxy_intercept_errors / error_page 404 /
+    # 让 4xx 落到反代默认页, 用 200 + 页面内提示更稳。
     if not _is_feature_enabled():
-        return HTMLResponse(_NOT_FOUND_HTML, status_code=404)
+        return HTMLResponse(_NOT_FOUND_HTML)
     state = _check_token(token)
     if not state:
-        return HTMLResponse(_NOT_FOUND_HTML, status_code=404)
+        return HTMLResponse(_NOT_FOUND_HTML)
     if not _TEMPLATE_PATH.exists():
         return HTMLResponse("<h1>page template missing</h1>", status_code=500)
     return FileResponse(_TEMPLATE_PATH, media_type="text/html; charset=utf-8")
@@ -285,11 +287,28 @@ async def gacha_web_weapon(token: str, rid: str):
 
 
 def _random_char_avatar(seed: str) -> Optional[Path]:
-    """挑一张本地角色头像作为兜底, 用 token 做种避免每次刷新都换。"""
+    """挑一张本地角色头像作为兜底, 用 token 做种避免每次刷新都换。
+    用 hashlib.md5 而不是内置 hash() 避免 PYTHONHASHSEED 跨进程飘移。"""
+    import hashlib
     candidates = sorted(AVATAR_PATH.glob("role_head_*.png"))
     if not candidates:
         return None
-    return candidates[hash(seed) % len(candidates)]
+    idx = int.from_bytes(hashlib.md5(seed.encode()).digest()[:4], "big") % len(candidates)
+    return candidates[idx]
+
+
+# /userpic 响应字节缓存: 每个 token 最多触发一次外部抓取, 后续请求走内存。
+# 既消除了被当代理刷外网的滥用面, 也省掉了 q1.qlogo.cn 的重复往返开销。
+from collections import OrderedDict as _OrderedDict
+_userpic_bytes: "_OrderedDict[str, tuple[bytes, str]]" = _OrderedDict()
+_USERPIC_CACHE_MAX = 4000
+
+
+def _userpic_cache_set(token: str, content: bytes, mime: str) -> None:
+    _userpic_bytes[token] = (content, mime)
+    _userpic_bytes.move_to_end(token)
+    while len(_userpic_bytes) > _USERPIC_CACHE_MAX:
+        _userpic_bytes.popitem(last=False)
 
 
 @app.get("/waves/gacha/{token}/userpic")
@@ -301,25 +320,32 @@ async def gacha_web_userpic(token: str):
     if not state:
         return JSONResponse({"error": "expired"}, status_code=404)
 
+    cached = _userpic_bytes.get(token)
+    if cached is not None:
+        _userpic_bytes.move_to_end(token)
+        return Response(cached[0], media_type=cached[1], headers={"Cache-Control": "max-age=600"})
+
     qq_avatar = (state.get("base") or {}).get("qq_avatar") or ""
     if qq_avatar:
         full = "https:" + qq_avatar if qq_avatar.startswith("//") else qq_avatar
         try:
-            async with httpx.AsyncClient(timeout=6, follow_redirects=True) as client:
+            # follow_redirects=False: 锁死目标域, 防 q1.qlogo.cn 重定向到内网造成 SSRF
+            async with httpx.AsyncClient(timeout=6, follow_redirects=False) as client:
                 r = await client.get(full, headers={"Referer": ""})
-                # QQ 头像不存在时仍返回 200 + 默认占位; 没有可靠的"真 404"特征,
-                # 仅当响应非 200 或 body 为空 时才走兜底。
                 if r.status_code == 200 and r.content:
-                    return Response(
-                        r.content,
-                        media_type=r.headers.get("content-type", "image/jpeg"),
-                        headers={"Cache-Control": "max-age=600"},
-                    )
+                    mime = r.headers.get("content-type", "image/jpeg")
+                    _userpic_cache_set(token, r.content, mime)
+                    return Response(r.content, media_type=mime, headers={"Cache-Control": "max-age=600"})
         except Exception as e:
             logger.debug(f"[鸣潮·抽卡网页] QQ头像抓取失败: {e}")
 
     fallback = _random_char_avatar(token)
     if fallback and fallback.exists():
+        try:
+            content = fallback.read_bytes()
+            _userpic_cache_set(token, content, "image/png")
+        except Exception:
+            pass
         return FileResponse(fallback, media_type="image/png", headers={"Cache-Control": "max-age=600"})
 
     return JSONResponse({"error": "no_avatar"}, status_code=404)
