@@ -6,12 +6,15 @@ import asyncio
 import shutil
 from pathlib import Path
 
-from gsuid_core.sv import Plugins
+from gsuid_core.sv import SL, Plugins
 from gsuid_core.logger import logger
 from gsuid_core.server import on_core_shutdown
 from gsuid_core.data_store import get_res_path
 
-Plugins(name="XutheringWavesUID", force_prefix=["ww"], allow_empty_prefix=False)
+# 幂等: 防止跨插件 cross-import 让本文件在新 namespace 下重 exec 时
+# 把 disable_force_prefix 用默认值 False 覆盖掉。
+if "XutheringWavesUID" not in SL.plugins:
+    Plugins(name="XutheringWavesUID", force_prefix=["ww"], allow_empty_prefix=False)
 
 # 安装 Bot 消息发送 Hook
 from .utils.bot_send_hook import install_bot_hooks
