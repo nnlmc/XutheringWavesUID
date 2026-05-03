@@ -1,6 +1,5 @@
 import re
 import os
-import base64
 from typing import Dict, Optional, List, Any
 from pathlib import Path
 
@@ -106,13 +105,6 @@ async def _get_base_context(char_model: CharacterModel, char_id: str) -> Dict[st
     }
     
     theme_color = ELEMENT_COLOR_MAP.get(element_name, "#dcb268")
-    
-    hakushin_logo_path = TEMP_PATH / "imgs" / "hakushin.svg"
-    hakushin_logo = ""
-    if hakushin_logo_path.exists():
-        with open(hakushin_logo_path, "rb") as f:
-            data = f.read()
-        hakushin_logo = f"data:image/svg+xml;base64,{base64.b64encode(data).decode('utf-8')}"
 
     # 突破材料
     materials = []
@@ -132,7 +124,6 @@ async def _get_base_context(char_model: CharacterModel, char_id: str) -> Dict[st
         "rarity_icon": image_to_base64(rarity_path),
         "bg_url": pil_to_b64(bg_img, quality=75),
         "portrait_url": image_to_base64(role_pile_path),
-        "hakushin_logo": hakushin_logo,
         "materials": materials,
         "footer_url": image_to_base64(TEXTURE2D_PATH / "footer_white.png"),
     }

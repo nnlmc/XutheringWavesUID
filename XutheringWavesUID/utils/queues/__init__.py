@@ -14,24 +14,29 @@ from ..api.wwapi import (
 )
 
 
-@event_handler(QUEUE_SCORE_RANK)
-async def send_score_rank(item: Any):
-    if not item:
+# (queue_name, upload_url, log_label)
+_UPLOAD_JOBS = [
+    (QUEUE_SCORE_RANK, UPLOAD_URL, "面板"),
+    (QUEUE_ABYSS_RECORD, UPLOAD_ABYSS_RECORD_URL, "深渊"),
+    (QUEUE_SLASH_RECORD, UPLOAD_SLASH_RECORD_URL, "冥海"),
+    (QUEUE_MATRIX_RECORD, UPLOAD_MATRIX_RECORD_URL, "矩阵"),
+]
+
+
+async def _post_upload(item: Any, url: str, label: str) -> None:
+    if not item or not isinstance(item, dict):
         return
-    if not isinstance(item, dict):
-        return
+
     from ...wutheringwaves_config import WutheringWavesConfig
-
     WavesToken = WutheringWavesConfig.get_config("WavesToken").data
-
     if not WavesToken:
         return
 
-    async with httpx.AsyncClient() as client:
-        res = None
-        try:
+    res = None
+    try:
+        async with httpx.AsyncClient() as client:
             res = await client.post(
-                UPLOAD_URL,
+                url,
                 json=item,
                 headers={
                     "Content-Type": "application/json",
@@ -39,99 +44,20 @@ async def send_score_rank(item: Any):
                 },
                 timeout=httpx.Timeout(10),
             )
-            logger.info(f"上传面板结果: {res.status_code} - {res.text}")
-        except Exception as e:
-            logger.exception(f"上传面板失败: {res.text if res else ''} {e}")
+        logger.info(f"上传{label}结果: {res.status_code} - {res.text}")
+    except Exception as e:
+        logger.exception(f"上传{label}失败: {res.text if res else ''} {e}")
 
 
-@event_handler(QUEUE_ABYSS_RECORD)
-async def send_abyss_record(item: Any):
-    if not item:
-        return
-    if not isinstance(item, dict):
-        return
-    from ...wutheringwaves_config import WutheringWavesConfig
-
-    WavesToken = WutheringWavesConfig.get_config("WavesToken").data
-
-    if not WavesToken:
-        return
-
-    async with httpx.AsyncClient() as client:
-        res = None
-        try:
-            res = await client.post(
-                UPLOAD_ABYSS_RECORD_URL,
-                json=item,
-                headers={
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {WavesToken}",
-                },
-                timeout=httpx.Timeout(10),
-            )
-            logger.info(f"上传深渊结果: {res.status_code} - {res.text}")
-        except Exception as e:
-            logger.exception(f"上传深渊失败: {res.text if res else ''} {e}")
+def _make_handler(queue: str, url: str, label: str):
+    async def _handler(item: Any):
+        await _post_upload(item, url, label)
+    _handler.__name__ = f"send_{queue.removeprefix('waves_')}"
+    return _handler
 
 
-@event_handler(QUEUE_SLASH_RECORD)
-async def send_slash_record(item: Any):
-    if not item:
-        return
-    if not isinstance(item, dict):
-        return
-    from ...wutheringwaves_config import WutheringWavesConfig
-
-    WavesToken = WutheringWavesConfig.get_config("WavesToken").data
-
-    if not WavesToken:
-        return
-
-    async with httpx.AsyncClient() as client:
-        res = None
-        try:
-            res = await client.post(
-                UPLOAD_SLASH_RECORD_URL,
-                json=item,
-                headers={
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {WavesToken}",
-                },
-                timeout=httpx.Timeout(10),
-            )
-            logger.info(f"上传冥海结果: {res.status_code} - {res.text}")
-        except Exception as e:
-            logger.exception(f"上传冥海失败: {res.text if res else ''} {e}")
-
-
-@event_handler(QUEUE_MATRIX_RECORD)
-async def send_matrix_record(item: Any):
-    if not item:
-        return
-    if not isinstance(item, dict):
-        return
-    from ...wutheringwaves_config import WutheringWavesConfig
-
-    WavesToken = WutheringWavesConfig.get_config("WavesToken").data
-
-    if not WavesToken:
-        return
-
-    async with httpx.AsyncClient() as client:
-        res = None
-        try:
-            res = await client.post(
-                UPLOAD_MATRIX_RECORD_URL,
-                json=item,
-                headers={
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {WavesToken}",
-                },
-                timeout=httpx.Timeout(10),
-            )
-            logger.info(f"上传矩阵结果: {res.status_code} - {res.text}")
-        except Exception as e:
-            logger.exception(f"上传矩阵失败: {res.text if res else ''} {e}")
+for _queue, _url, _label in _UPLOAD_JOBS:
+    event_handler(_queue)(_make_handler(_queue, _url, _label))
 
 
 def init_queues():

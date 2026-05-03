@@ -430,7 +430,7 @@
       {
         "name": "抽卡记录",
         "desc": "查询自己的抽卡记录",
-        "eg": "抽卡记录",
+        "eg": "抽卡页面/抽卡记录",
         "need_ck": true,
         "need_sk": false,
         "need_admin": false

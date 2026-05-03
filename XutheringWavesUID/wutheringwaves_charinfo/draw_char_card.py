@@ -615,6 +615,9 @@ async def draw_char_detail_img(
     char_name = alias_to_char_name(char)
 
     damageDetail = DamageDetailRegister.find_class(char_id)
+    if damageDetail and not WutheringWavesConfig.get_config("WavesToken").data:
+        logger.info(f"[鸣潮] {char_name} 未接入总服务器, 跳过伤害绘制")
+        damageDetail = None
     ph_sum_value = 250
     jineng_len = 180
     dd_len = 0
@@ -922,15 +925,6 @@ async def draw_char_detail_img(
         mz_temp.alpha_composite(mz_bg_temp, dest=(i * 190, 0))
 
     img.paste(mz_temp, (0, 1080 + jineng_len), mz_temp)
-
-    # logger.warning(
-    #     f"[鸣潮·伤害诊断] block-b-gate char_id={char_id} char={char_name} "
-    #     f"is_limit_query={is_limit_query} isDraw={isDraw} "
-    #     f"damageDetail={'OK' if damageDetail else repr(damageDetail)} "
-    #     f"damageDetail_len={len(damageDetail) if damageDetail else None} "
-    #     f"role_detail_id={id(role_detail)} {_ph_fp(role_detail)} "
-    #     f"will_draw={bool(isDraw and damageDetail and role_detail.phantomData and role_detail.phantomData.equipPhantomList)}"
-    # )
 
     if isDraw and damageDetail and role_detail.phantomData and role_detail.phantomData.equipPhantomList:
         # damageAttribute = card_sort_map_to_attribute(card_map)

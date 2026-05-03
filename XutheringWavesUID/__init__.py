@@ -118,6 +118,16 @@ from .utils.localization import init_localization
 init_localization()
 
 
+# 迁移: 删除旧的 login_cache.db (已重命名为 url_cache.db)
+from .utils.resource.RESOURCE_PATH import MAIN_PATH as _MAIN_PATH
+_old_login_cache = _MAIN_PATH / "login_cache.db"
+if _old_login_cache.exists():
+    try:
+        _old_login_cache.unlink()
+        logger.info("[XutheringWavesUID] 已删除旧的 login_cache.db")
+    except Exception as _e:
+        logger.warning(f"[XutheringWavesUID] 删除旧的 login_cache.db 失败: {_e}")
+
 # 修正: API曾错误地将陆·赫斯的resourceType标记为武器
 import json as _json
 from .utils.resource.RESOURCE_PATH import PLAYER_PATH as _PLAYER_PATH

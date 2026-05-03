@@ -586,7 +586,7 @@ def get_small_logo(logo_num=1):
     return Image.open(TEXT_PATH / f"logo_small_{logo_num}.png")
 
 
-def get_footer(color: Literal["white", "black", "hakush"] = "white"):
+def get_footer(color: Literal["white", "black"] = "white"):
     return Image.open(TEXT_PATH / f"footer_{color}.png")
 
 
@@ -595,7 +595,7 @@ def add_footer(
     w: int = 0,
     offset_y: int = 0,
     is_invert: bool = False,
-    color: Literal["white", "black", "hakush"] = "white",
+    color: Literal["white", "black"] = "white",
 ):
     footer = get_footer(color)
     if is_invert:

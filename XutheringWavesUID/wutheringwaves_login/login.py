@@ -37,7 +37,7 @@ from ..wutheringwaves_user.login_succ import login_success_msg
 cache = TimedCache(
     timeout=180,
     maxsize=10,
-    persist_path=MAIN_PATH / "login_cache.db",
+    persist_path=MAIN_PATH / "url_cache.db",
 )
 
 game_title = "[鸣潮]"

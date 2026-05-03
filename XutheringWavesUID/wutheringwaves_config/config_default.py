@@ -282,4 +282,9 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
         "开启后，未登录用户可浏览图片列表（不渲染预览，不占用服务器资源）；上传/裁剪/删除/覆盖仍需密码",
         False,
     ),
+    "WavesGachaWebPage": GsBoolConfig(
+        "抽卡网页查看功能",
+        "开启后，用户可发送【抽卡页面/抽卡网页/网页抽卡记录】打开网页查看抽卡详细记录",
+        False,
+    ),
 }
