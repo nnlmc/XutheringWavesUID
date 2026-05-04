@@ -54,6 +54,7 @@ class RankDetail(BaseModel):
     phantom_score_bg: str
     expected_damage: float
     expected_name: str
+    sender_avatar: Optional[str] = ""
 
 
 class RankInfoData(BaseModel):
@@ -102,6 +103,7 @@ class TotalRankDetail(BaseModel):
     waves_id: str
     total_score: float
     char_score_details: List[CharScoreDetail]
+    sender_avatar: Optional[str] = ""
 
 
 class TotalRankInfoData(BaseModel):

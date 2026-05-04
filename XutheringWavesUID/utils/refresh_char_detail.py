@@ -111,6 +111,7 @@ async def send_card(
     token: Optional[str] = "",
     role_info: Optional[RoleList] = None,
     waves_data: Optional[List] = None,
+    sender_avatar: str = "",
 ):
     waves_char_rank: Optional[List[WavesCharRank]] = None
 
@@ -148,6 +149,8 @@ async def send_card(
             "role_num": account_info.roleNum,
             "single_refresh": 1 if len(waves_data) == 1 else 0,
         }
+        if sender_avatar:
+            metadata["sender_avatar"] = sender_avatar
         push_item(QUEUE_SCORE_RANK, metadata)
 
 
@@ -159,6 +162,7 @@ async def save_card_info(
     is_self_ck: bool = False,
     token: str = "",
     role_info: Optional[RoleList] = None,
+    sender_avatar: str = "",
 ):
     if len(waves_data) == 0:
         return
@@ -202,7 +206,7 @@ async def save_card_info(
 
     save_data = list(old_data.values())
 
-    await send_card(uid, user_id, save_data, is_self_ck, token, role_info, waves_data)
+    await send_card(uid, user_id, save_data, is_self_ck, token, role_info, waves_data, sender_avatar)
 
     try:
         # 移除所有 URL 后再保存
@@ -455,6 +459,10 @@ async def refresh_char(
 
         waves_datas.append(role_detail_info)
 
+    sender_avatar = (ev.sender or {}).get("avatar") or ""
+    if not (isinstance(sender_avatar, str) and sender_avatar.startswith(("http://", "https://"))):
+        sender_avatar = ""
+
     await save_card_info(
         uid,
         waves_datas,
@@ -463,6 +471,7 @@ async def refresh_char(
         is_self_ck=is_self_ck,
         token=ck,
         role_info=role_info,
+        sender_avatar=sender_avatar,
     )
 
     if not waves_datas:

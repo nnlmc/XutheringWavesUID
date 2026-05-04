@@ -271,7 +271,7 @@ async def draw_all_slash_rank_card(bot: Bot, ev: Event):
     card_img.paste(char_mask_temp, (0, 0), char_mask_temp)
 
     rank_list = rankInfoList.data.rank_list
-    tasks = [get_avatar(rank.user_id) for rank in rank_list]
+    tasks = [get_avatar(rank.user_id, getattr(rank, "sender_avatar", "")) for rank in rank_list]
     results = await asyncio.gather(*tasks)
 
     # 获取角色信息
@@ -391,11 +391,39 @@ async def draw_all_slash_rank_card(bot: Bot, ev: Event):
     return card_img
 
 
+async def _fetch_sender_avatar_image(url: str) -> Optional[Image.Image]:
+    if not url or not url.startswith(("http://", "https://")):
+        return None
+    cache_key = f"sender:{url}"
+    if WutheringWavesConfig.get_config("QQPicCache").data:
+        cached = pic_cache.get(cache_key)
+        if cached:
+            return cached
+    try:
+        import io
+        import httpx
+
+        async with httpx.AsyncClient(timeout=6, follow_redirects=False) as client:
+            r = await client.get(url, headers={"Referer": ""})
+            if r.status_code != 200 or not r.content:
+                return None
+            img = Image.open(io.BytesIO(r.content)).convert("RGBA")
+        pic_cache.set(cache_key, img)
+        return img
+    except Exception as e:
+        logger.debug(f"sender_avatar 抓取失败 {url}: {e}")
+        return None
+
+
 async def get_avatar(
     qid: Optional[str],
+    sender_avatar: Optional[str] = None,
 ) -> Image.Image:
-    # 检查qid 为纯数字
-    if qid and qid.isdigit():
+    pic: Optional[Image.Image] = None
+    if sender_avatar:
+        pic = await _fetch_sender_avatar_image(sender_avatar)
+
+    if pic is None and qid and qid.isdigit():
         if WutheringWavesConfig.get_config("QQPicCache").data:
             pic = pic_cache.get(qid)
             if not pic:
@@ -404,8 +432,9 @@ async def get_avatar(
         else:
             pic = await get_qq_avatar(qid, size=100)
             pic_cache.set(qid, pic)
-        pic_temp = crop_center_img(pic, 120, 120)
 
+    if pic is not None:
+        pic_temp = crop_center_img(pic, 120, 120)
         img = Image.new("RGBA", (180, 180))
         avatar_mask_temp = avatar_mask.copy()
         mask_pic_temp = avatar_mask_temp.resize((120, 120))
