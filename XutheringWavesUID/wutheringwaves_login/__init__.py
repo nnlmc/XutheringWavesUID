@@ -2,6 +2,7 @@ import re
 
 from gsuid_core.sv import SV
 from gsuid_core.bot import Bot
+from gsuid_core.logger import logger
 from gsuid_core.models import Event
 
 from .email_login import email_login_entry
@@ -17,12 +18,14 @@ sv_email_login = SV("国际服登录")
 async def get_login_msg(bot: Bot, ev: Event):
     game_title = "[鸣潮]"
 
-    # uid_list = await WavesBind.get_uid_list_by_game(ev.user_id, ev.bot_id)
-    # if uid_list is None:
-    #     return await bot.send(ERROR_CODE[WAVES_CODE_103])
-
     text = re.sub(r'["\n\t ]+', "", ev.text.strip())
     text = text.replace("，", ",")
+    has_text = bool(text)
+    branch = "page" if not text else ("code" if "," in text else ("digit_skip" if text.isdigit() else "invalid"))
+    logger.debug(
+        f"[鸣潮登录] get_login_msg user_id={ev.user_id} bot_id={ev.bot_id} "
+        f"group_id={ev.group_id} has_text={has_text} branch={branch}"
+    )
     if text == "":
         return await page_login(bot, ev)
 
@@ -42,4 +45,8 @@ async def get_login_msg(bot: Bot, ev: Event):
 
 @sv_email_login.on_fullmatch(("邮箱登录", "国际服登录"), block=True)
 async def get_email_login_msg(bot: Bot, ev: Event):
+    logger.debug(
+        f"[鸣潮登录] email_login user_id={ev.user_id} bot_id={ev.bot_id} "
+        f"group_id={ev.group_id}"
+    )
     return await email_login_entry(bot, ev)

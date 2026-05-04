@@ -124,6 +124,9 @@ async def send_login(bot: Bot, ev: Event, url):
 async def page_login_local(bot: Bot, ev: Event, url):
     at_sender = True if ev.group_id else False
     user_token = get_token(ev.user_id)
+    logger.debug(
+        f"[鸣潮登录] page_login_local user_id={ev.user_id} user_token={user_token}"
+    )
 
     # 始终以最新指令为准：直接覆盖任何已有 session（含邮箱），并刷新 TTL。
     # 先写 cache 再发 URL，关掉「URL 已可见但 cache 未写入」的瞬开窗口。
@@ -143,6 +146,10 @@ async def page_login_local(bot: Bot, ev: Event, url):
                     return
                 if result.get("mobile") != -1 and result.get("code") != -1:
                     text = f"{result['mobile']},{result['code']}"
+                    logger.debug(
+                        f"[鸣潮登录] page_login_local 收到提交 user_id={ev.user_id} "
+                        f"user_token={user_token}"
+                    )
                     cache.delete(user_token)
                     break
                 await asyncio.sleep(1)
@@ -160,11 +167,17 @@ async def page_login_local(bot: Bot, ev: Event, url):
 async def page_login_other(bot: Bot, ev: Event, url):
     at_sender = True if ev.group_id else False
     user_token = get_token(ev.user_id)
+    logger.debug(
+        f"[鸣潮登录] page_login_other user_id={ev.user_id} user_token={user_token} url={url}"
+    )
 
     auth = {"bot_id": ev.bot_id, "user_id": ev.user_id}
 
     token = cache.get(user_token)
     if isinstance(token, str):
+        logger.debug(
+            f"[鸣潮登录] page_login_other 命中缓存 token user_id={ev.user_id}"
+        )
         await send_login(bot, ev, f"{url}/waves/i/{token}")
         return
 
@@ -225,6 +238,9 @@ async def page_login_other(bot: Bot, ev: Event, url):
                         await asyncio.sleep(1)
                         continue
 
+                    logger.debug(
+                        f"[鸣潮登录] page_login_other 拿到 ck user_id={ev.user_id}"
+                    )
                     waves_user, bind_msg = await add_cookie(ev, data["ck"], data["did"])
                     cache.delete(user_token)
                     if "成功" in bind_msg:
@@ -242,6 +258,9 @@ async def page_login_other(bot: Bot, ev: Event, url):
 
 async def page_login(bot: Bot, ev: Event):
     url, is_local = await get_url()
+    logger.debug(
+        f"[鸣潮登录] page_login user_id={ev.user_id} url={url} is_local={is_local}"
+    )
 
     if is_local:
         return await page_login_local(bot, ev, url)
@@ -258,13 +277,23 @@ async def code_login(bot: Bot, ev: Event, text: str, isPage=False):
         if not is_valid_chinese_phone_number(phone_number):
             raise ValueError("Invalid phone number")
     except ValueError as _:
+        logger.debug(
+            f"[鸣潮登录] code_login 格式错误 user_id={ev.user_id} isPage={isPage}"
+        )
         return await bot.send(
             f"{game_title} 手机号+验证码登录失败\n\n请参照以下格式:\n{PREFIX}登录 手机号,验证码\n",
             at_sender=at_sender,
         )
 
     did = str(uuid.uuid4()).upper()
+    logger.debug(
+        f"[鸣潮登录] code_login 提交 user_id={ev.user_id} isPage={isPage}"
+    )
     result = await waves_api.login(phone_number, code, did)
+    logger.debug(
+        f"[鸣潮登录] code_login waves_api.login 返回 user_id={ev.user_id} "
+        f"success={result.success} msg={result.msg!r}"
+    )
     if not result.success:
         return await bot.send(result.throw_msg(), at_sender=at_sender)
 
@@ -290,12 +319,20 @@ async def code_login(bot: Bot, ev: Event, text: str, isPage=False):
 async def add_cookie(ev, token, did) -> tuple[Union[WavesUser, None], str]:
     """返回 (WavesUser 或 None, 绑定概要消息)"""
     ck_res = await deal.add_cookie(ev, token, did, is_login=True)
-    if "成功" in ck_res:
+    success = "成功" in ck_res
+    logger.debug(
+        f"[鸣潮登录] add_cookie user_id={ev.user_id} success={success} "
+        f"summary={ck_res[:80]!r}"
+    )
+    if success:
         user = await WavesUser.get_user_by_attr(ev.user_id, ev.bot_id, "cookie", token, game_id=WAVES_GAME_ID)
         if user:
             data = await WavesBind.insert_waves_uid(ev.user_id, ev.bot_id, user.uid, ev.group_id, lenth_limit=9)
             if data == 0 or data == -2:
                 await WavesBind.switch_uid_by_game(ev.user_id, ev.bot_id, user.uid)
+        logger.debug(
+            f"[鸣潮登录] add_cookie 绑定 user_id={ev.user_id} uid={getattr(user, 'uid', None)}"
+        )
         return user, ck_res
     return None, ck_res
 
@@ -303,6 +340,10 @@ async def add_cookie(ev, token, did) -> tuple[Union[WavesUser, None], str]:
 @app.get("/waves/i/{auth}")
 async def waves_login_index(auth: str):
     state = cache.get(auth)
+    logger.debug(
+        f"[鸣潮登录] waves_login_index auth={auth} state_type={type(state).__name__} "
+        f"flow={(state.get('flow') if isinstance(state, dict) else None)!r}"
+    )
 
     if isinstance(state, dict) and state.get("flow") == "email":
         from .email_login import render_email_login_page
@@ -366,6 +407,9 @@ class LoginModel(BaseModel):
 @app.post("/waves/login")
 async def waves_login(data: LoginModel):
     temp = cache.get(data.auth)
+    logger.debug(
+        f"[鸣潮登录] waves_login POST auth={data.auth} cache_hit={temp is not None}"
+    )
     if temp is None:
         return {"success": False, "msg": "登录超时"}
 

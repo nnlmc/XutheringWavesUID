@@ -250,6 +250,8 @@ async def ph_card_draw(
             if _phantom and _phantom.phantomProp:
                 props = _phantom.get_props()
                 _score, _bg = calc_phantom_score(role_detail.role.roleId, props, _phantom.cost, calc.calc_temp)
+                if _score > 49.95:
+                    _score = 50.0
 
                 phantom_score += _score
                 sh_title = Image.open(TEXT_PATH / f"sh_title_{_bg}.png")
@@ -1174,6 +1176,8 @@ async def draw_char_score_img(ev: Event, uid: str, char: str, user_id: str, wave
             if _phantom and _phantom.phantomProp:
                 props = _phantom.get_props()
                 _score, _bg = calc_phantom_score(char_id, props, _phantom.cost, calc.calc_temp)
+                if _score > 49.95:
+                    _score = 50.0
 
                 phantom_score += _score
                 sh_title = Image.open(TEXT_PATH / f"sh_title_{_bg}.png")
