@@ -58,7 +58,7 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
     ),
     "WavesLoginUrlSelf": GsBoolConfig(
         "强制【鸣潮登录url】为自己的域名",
-        "强制【鸣潮登录url】为自己的域名",
+        "外置登录服务请关闭；自己穿透或 VPS 反代请打开",
         False,
     ),
     "WavesTencentWord": GsBoolConfig(
@@ -284,7 +284,7 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
     ),
     "WavesGachaWebPage": GsBoolConfig(
         "抽卡网页查看功能",
-        "开启后，用户可发送【抽卡页面/抽卡网页/网页抽卡记录】打开网页查看抽卡详细记录",
+        "开启后，用户可发送【抽卡页面/抽卡网页/网页抽卡记录】打开网页查看抽卡详细记录。外置登录需外置登录部署时支持此功能",
         False,
     ),
 }

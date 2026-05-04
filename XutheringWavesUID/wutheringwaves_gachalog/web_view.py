@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import secrets
 from typing import Dict, List, Optional, Tuple
@@ -55,6 +56,10 @@ def feature_disabled_msg() -> str:
 async def _build_account_info(uid: str, ev: Event) -> Dict:
     """尽力获取账号基础信息，失败回退到仅 uid。"""
     info: Dict = {"uid": uid}
+    # 优先：core 适配器传入的 avatar URL（QQ 官方 / Discord / KOOK 等都会带）
+    sender_avatar = (ev.sender or {}).get("avatar") or ""
+    if isinstance(sender_avatar, str) and sender_avatar.startswith(("http://", "https://")):
+        info["sender_avatar"] = sender_avatar
     # QQ 头像 URL（仅 onebot + 纯数字 user_id）；用 // 协议相对，避免 mixed-content
     if ev.bot_id == "onebot" and str(ev.user_id).isdigit():
         info["qq_avatar"] = f"//q1.qlogo.cn/g?b=qq&nk={ev.user_id}&s=640"
@@ -82,7 +87,13 @@ async def _build_account_info(uid: str, ev: Event) -> Dict:
 
 
 async def make_gacha_web_url(uid: str, ev: Event) -> Tuple[Optional[str], str]:
-    """生成 10 分钟内有效的查看链接。返回 (url, message)。"""
+    """生成 10 分钟内有效的查看链接。返回 (url, message)。
+
+    - 本地 / 自有反代域名（is_local=True）: 走 gsuid_core 自带的 /waves/gacha 路由,
+      与历史行为完全一致。
+    - 外置登录服务（is_local=False）: 把摘要数据 + 头像 + 共享资源 PNG
+      推送到 ww-login 服务缓存，链接指向那边的同名路由。
+    """
     if not _is_feature_enabled():
         return None, feature_disabled_msg()
 
@@ -92,12 +103,212 @@ async def make_gacha_web_url(uid: str, ev: Event) -> Tuple[Optional[str], str]:
 
     base = await _build_account_info(uid, ev)
     token = secrets.token_urlsafe(16)
-    _token_cache.set(token, {"uid": uid, "user_id": ev.user_id, "bot_id": ev.bot_id, "base": base})
+    state = {"uid": uid, "user_id": ev.user_id, "bot_id": ev.bot_id, "base": base}
 
     # 延迟导入避免插件加载顺序导致的循环依赖
     from ..wutheringwaves_login.login import get_url
-    url, _is_local = await get_url()
+    url, is_local = await get_url()
+
+    if is_local:
+        _token_cache.set(token, state)
+        return f"{url}/waves/gacha/{token}", "ok"
+
+    # 外置模式：先把所有依赖推过去，再放出链接，避免页面打开时图片/数据 404。
+    ok, msg = await _push_gacha_to_external(url, token, state)
+    if not ok:
+        return None, msg
     return f"{url}/waves/gacha/{token}", "ok"
+
+
+def _fmt_size(n: int) -> str:
+    if n < 1024:
+        return f"{n}B"
+    if n < 1024 * 1024:
+        return f"{n / 1024:.1f}KB"
+    return f"{n / (1024 * 1024):.2f}MB"
+
+
+async def _fetch_avatar_url(target: str) -> Optional[Tuple[bytes, str]]:
+    """从 URL 抓取头像字节。follow_redirects=False 锁死目标域防 SSRF。"""
+    try:
+        async with httpx.AsyncClient(timeout=6, follow_redirects=False) as client:
+            r = await client.get(target, headers={"Referer": ""})
+            if r.status_code == 200 and r.content:
+                return r.content, r.headers.get("content-type", "image/jpeg")
+    except Exception as e:
+        logger.debug(f"[鸣潮·抽卡网页] 头像抓取失败 {target}: {e}")
+    return None
+
+
+async def _resolve_userpic_for_external(state: Dict, seed: str) -> Optional[Tuple[bytes, str]]:
+    """外置模式头像优先级: core 适配器 avatar -> QQ CDN -> 随机本地角色头像。"""
+    base = state.get("base") or {}
+    sender_avatar = base.get("sender_avatar") or ""
+    if sender_avatar:
+        got = await _fetch_avatar_url(sender_avatar)
+        if got:
+            return got
+    qq_avatar = base.get("qq_avatar") or ""
+    if qq_avatar:
+        full = ("https:" + qq_avatar) if qq_avatar.startswith("//") else qq_avatar
+        got = await _fetch_avatar_url(full)
+        if got:
+            return got
+    fallback = _random_char_avatar(seed)
+    if fallback and fallback.exists():
+        try:
+            return fallback.read_bytes(), "image/png"
+        except Exception:
+            pass
+    return None
+
+
+async def _push_gacha_to_external(url: str, token: str, state: Dict) -> Tuple[bool, str]:
+    uid = state["uid"]
+    base = state.get("base") or {}
+
+    try:
+        raw = await _load_gacha_data(uid)
+    except Exception as e:
+        logger.warning(f"[鸣潮·抽卡网页] 读取数据失败 uid={uid}: {e}")
+        return False, "读取抽卡数据失败"
+
+    data = raw.get("data", {})
+    pools: List[Dict] = []
+    ref_avatar: set = set()
+    ref_weapon: set = set()
+
+    def _add_ref(item: Dict) -> None:
+        rid = item.get("resourceId")
+        if rid is None:
+            return
+        bucket = ref_weapon if item.get("resourceType") == "武器" else ref_avatar
+        bucket.add(int(rid))
+
+    for name in gacha_type_meta_data.keys():
+        logs = data.get(name, [])
+        pool = _build_pool_view(name, logs)
+        pools.append(pool)
+        for fs in pool["five_stars"]:
+            _add_ref(fs)
+            for it in fs.get("top_4stars", []):
+                _add_ref(it)
+
+    payload = {
+        "base": base,
+        "data_time": raw.get("data_time", ""),
+        "now": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "pools": pools,
+    }
+    data_bytes = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+
+    userpic = await _resolve_userpic_for_external(state, token)
+
+    ref_total = len(ref_avatar) + len(ref_weapon)
+    asset_uploaded = 0
+    asset_bytes = 0
+    asset_failed = 0
+
+    async def up_asset(client: httpx.AsyncClient, kind: str, rid: int) -> None:
+        nonlocal asset_uploaded, asset_bytes, asset_failed
+        path = (
+            AVATAR_PATH / f"role_head_{rid}.png"
+            if kind == "avatar"
+            else WEAPON_PATH / f"weapon_{rid}.png"
+        )
+        if not path.exists():
+            return
+        try:
+            content = path.read_bytes()
+            r = await client.post(
+                f"{url}/waves/gacha/asset/{kind}/{rid}",
+                content=content,
+                headers={"Content-Type": "image/png"},
+            )
+            if r.status_code == 200:
+                asset_uploaded += 1
+                asset_bytes += len(content)
+            else:
+                asset_failed += 1
+                logger.debug(
+                    f"[鸣潮·抽卡网页] asset {kind}/{rid} 上传失败 {r.status_code} {r.text[:120]}"
+                )
+        except Exception as e:
+            asset_failed += 1
+            logger.debug(f"[鸣潮·抽卡网页] asset {kind}/{rid} 上传异常: {e}")
+
+    userpic_size = 0
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            # 先一次询问哪些 asset ww-login 还没缓存。命中部分跳过上传，省带宽。
+            try:
+                check_resp = await client.post(
+                    f"{url}/waves/gacha/asset-check",
+                    content=json.dumps(
+                        {
+                            "avatar": list(ref_avatar),
+                            "weapon": list(ref_weapon),
+                        }
+                    ).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                )
+                if check_resp.status_code == 200:
+                    miss = check_resp.json().get("missing") or {}
+                    miss_avatar = {int(x) for x in miss.get("avatar", [])} & ref_avatar
+                    miss_weapon = {int(x) for x in miss.get("weapon", [])} & ref_weapon
+                    ref_avatar, ref_weapon = miss_avatar, miss_weapon
+                else:
+                    logger.debug(
+                        f"[鸣潮·抽卡网页] asset-check 非 200 ({check_resp.status_code})，退化全量上传"
+                    )
+            except Exception as e:
+                logger.debug(f"[鸣潮·抽卡网页] asset-check 异常: {e}，退化全量上传")
+            asset_skipped = ref_total - len(ref_avatar) - len(ref_weapon)
+            await asyncio.gather(
+                *(up_asset(client, "avatar", r) for r in ref_avatar),
+                *(up_asset(client, "weapon", r) for r in ref_weapon),
+            )
+            r = await client.post(
+                f"{url}/waves/gacha/data/{token}",
+                content=data_bytes,
+                headers={"Content-Type": "application/json"},
+            )
+            if r.status_code != 200:
+                logger.error(
+                    f"[鸣潮·抽卡网页] data 上传失败 {r.status_code} {r.text[:200]}"
+                )
+                return False, "外置抽卡页面上传失败"
+            if userpic:
+                up_bytes, up_mime = userpic
+                try:
+                    r2 = await client.post(
+                        f"{url}/waves/gacha/userpic/{token}",
+                        content=up_bytes,
+                        headers={"Content-Type": up_mime or "image/png"},
+                    )
+                    if r2.status_code == 200:
+                        userpic_size = len(up_bytes)
+                    else:
+                        logger.warning(
+                            f"[鸣潮·抽卡网页] userpic 上传失败 {r2.status_code} {r2.text[:120]}"
+                        )
+                except Exception as e:
+                    logger.warning(f"[鸣潮·抽卡网页] userpic 上传异常: {e}")
+    except Exception as e:
+        logger.exception(f"[鸣潮·抽卡网页] 外置上传异常: {e}")
+        return False, "外置抽卡页面上传失败"
+
+    total = len(data_bytes) + userpic_size + asset_bytes
+    logger.info(
+        f"[鸣潮·抽卡网页] 外置上传 token={token} uid={uid} "
+        f"data={_fmt_size(len(data_bytes))} "
+        f"userpic={_fmt_size(userpic_size)} "
+        f"assets={asset_uploaded}个/{_fmt_size(asset_bytes)}"
+        + (f" 命中跳过={asset_skipped}" if asset_skipped else "")
+        + (f" 失败={asset_failed}" if asset_failed else "")
+        + f" 合计={_fmt_size(total)}"
+    )
+    return True, ""
 
 
 # ----------------------------- 数据计算 -----------------------------
@@ -328,16 +539,11 @@ async def gacha_web_userpic(token: str):
     qq_avatar = (state.get("base") or {}).get("qq_avatar") or ""
     if qq_avatar:
         full = "https:" + qq_avatar if qq_avatar.startswith("//") else qq_avatar
-        try:
-            # follow_redirects=False: 锁死目标域, 防 q1.qlogo.cn 重定向到内网造成 SSRF
-            async with httpx.AsyncClient(timeout=6, follow_redirects=False) as client:
-                r = await client.get(full, headers={"Referer": ""})
-                if r.status_code == 200 and r.content:
-                    mime = r.headers.get("content-type", "image/jpeg")
-                    _userpic_cache_set(token, r.content, mime)
-                    return Response(r.content, media_type=mime, headers={"Cache-Control": "max-age=600"})
-        except Exception as e:
-            logger.debug(f"[鸣潮·抽卡网页] QQ头像抓取失败: {e}")
+        got = await _fetch_avatar_url(full)
+        if got:
+            content, mime = got
+            _userpic_cache_set(token, content, mime)
+            return Response(content, media_type=mime, headers={"Cache-Control": "max-age=600"})
 
     fallback = _random_char_avatar(token)
     if fallback and fallback.exists():
