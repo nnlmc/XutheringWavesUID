@@ -5,7 +5,7 @@ from gsuid_core.models import Event
 from gsuid_core.logger import logger
 
 from ..utils.hint import error_reply
-from ..utils.util import hide_uid
+from ..utils.util import hide_uid, get_hide_uid_pref
 from ..utils.waves_api import waves_api
 from ..utils.error_reply import WAVES_CODE_102
 from ..utils.api.model import ChallengeArea, AccountBaseInfo, RoleDetailData
@@ -44,6 +44,7 @@ async def draw_challenge_img(ev: Event, uid: str, user_id: str) -> Union[bytes, 
         _, ck = await waves_api.get_ck_result(uid, user_id, ev.bot_id)
         if not ck:
             return error_reply(WAVES_CODE_102)
+        user_pref = await get_hide_uid_pref(uid, user_id, ev.bot_id)
 
         # 全息数据
         challenge_data = await waves_api.get_challenge_data(uid, ck)
@@ -153,7 +154,7 @@ async def draw_challenge_img(ev: Event, uid: str, user_id: str) -> Union[bytes, 
 
         context = {
             "user_name": account_info.name,
-            "user_id": hide_uid(account_info.id),
+            "user_id": hide_uid(account_info.id, user_pref=user_pref),
             "level": account_info.level,
             "world_level": account_info.worldLevel,
             "show_stats": account_info.is_full,

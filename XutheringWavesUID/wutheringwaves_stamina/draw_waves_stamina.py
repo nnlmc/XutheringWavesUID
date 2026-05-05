@@ -370,6 +370,7 @@ async def _draw_stamina_img(ev: Event, valid: Dict, locale: str = "") -> Image.I
 
     # 尝试使用HTML渲染
     use_html_render = WutheringWavesConfig.get_config("UseHtmlRender").data
+    user_pref = user.hide_uid_self_value if user else ""
     if not PLAYWRIGHT_AVAILABLE or not use_html_render:
         mr_use_bg = bool(ShowConfig.get_config("MrUseBG"))
         return await _render_stamina_card_pil(
@@ -389,6 +390,7 @@ async def _draw_stamina_img(ev: Event, valid: Dict, locale: str = "") -> Image.I
             mr_use_bg=mr_use_bg,
             locale=locale,
             pile_hash=pile_hash,
+            user_pref=user_pref,
         )
 
     try:
@@ -409,6 +411,7 @@ async def _draw_stamina_img(ev: Event, valid: Dict, locale: str = "") -> Image.I
             locale=locale,
             from_sdk=from_sdk,
             pile_hash=pile_hash,
+            user_pref=user_pref,
         )
         if html_res:
             return html_res
@@ -434,6 +437,7 @@ async def _draw_stamina_img(ev: Event, valid: Dict, locale: str = "") -> Image.I
         mr_use_bg=mr_use_bg,
         locale=locale,
         pile_hash=pile_hash,
+        user_pref=user_pref,
     )
 
 
@@ -451,6 +455,7 @@ async def _render_stamina_card(
     locale: str = "",
     from_sdk: bool = False,
     pile_hash: Optional[str] = None,
+    user_pref: str = "",
 ) -> Image.Image:
     # 准备上下文数据
     
@@ -580,7 +585,7 @@ async def _render_stamina_card(
         "locale": locale,
         "user_name": daily_info.roleName,
         "role_id": daily_info.roleId,
-        "uid": hide_uid(daily_info.roleId),
+        "uid": hide_uid(daily_info.roleId, user_pref=user_pref),
         "avatar_url": pil_to_b64(avatar, quality=75),
         "pile_url": compress_and_b64(pile),
         "has_bg": has_bg,
@@ -690,6 +695,7 @@ async def _render_stamina_card_pil(
     mr_use_bg: bool = False,
     locale: str = "",
     pile_hash: Optional[str] = None,
+    user_pref: str = "",
 ) -> Image.Image:
     """实际的绘制逻辑"""
     # 处理背景图片
@@ -710,7 +716,7 @@ async def _render_stamina_card_pil(
 
     base_info_draw = ImageDraw.Draw(base_info_bg)
     base_info_draw.text((275, 120), f"{daily_info.roleName[:7]}", GREY, waves_font_30, "lm")
-    base_info_draw.text((226, 173), f"{t('特征码:', locale)}  {hide_uid(daily_info.roleId)}", GOLD, waves_font_25, "lm")
+    base_info_draw.text((226, 173), f"{t('特征码:', locale)}  {hide_uid(daily_info.roleId, user_pref=user_pref)}", GOLD, waves_font_25, "lm")
     # 账号基本信息，由于可能会没有，放在一起
 
     title_bar = Image.open(TEXT_PATH / "title_bar.png")

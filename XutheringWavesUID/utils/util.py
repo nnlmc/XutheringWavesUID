@@ -172,12 +172,35 @@ def generate_random_ipv4_manual():
     return ".".join([str(random.randint(0, 255)) for _ in range(4)])
 
 
-def hide_uid(uid) -> str:
+async def get_hide_uid_pref(uid: str, user_id: str, bot_id: str) -> str:
+    """读 WavesUser.hide_uid_self_value, 没绑定就回空 (走全局 HideUid)。
+
+    渲染入口在自己拿 ck 之外多一次 SELECT, 换来 hide_uid 可以纯按入参决策、
+    避免反向查 + cache 多实例不同步的坑。
+    """
+    from .database.models import WavesUser
+    from .constants import WAVES_GAME_ID
+    try:
+        user = await WavesUser.select_waves_user(uid, user_id, bot_id, game_id=WAVES_GAME_ID)
+        return user.hide_uid_self_value if user else ""
+    except Exception:
+        return ""
+
+
+def hide_uid(uid, user_pref: str = "") -> str:
+    """
+    user_pref: 该 uid 的 WavesUser.hide_uid_self_value, 由调用方从已取到的
+        user 行传入。"on" 强制隐藏 / "off" 强制不隐藏 / "" 跟随全局 HideUid。
+        没有 user 上下文的调用 (日志/无 ck 渲染等) 不传, 自然走全局配置。
+    """
     from ..wutheringwaves_config import WutheringWavesConfig
 
     uid_str = str(uid) if uid is not None else ""
-    if not WutheringWavesConfig.get_config("HideUid").data:
+    if user_pref == "off":
         return uid_str
+    if user_pref != "on":
+        if not WutheringWavesConfig.get_config("HideUid").data:
+            return uid_str
     if len(uid_str) < 2:
         return uid_str
     return uid_str[:2] + "*" * 4 + uid_str[-2:]

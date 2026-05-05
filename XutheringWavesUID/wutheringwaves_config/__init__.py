@@ -77,6 +77,12 @@ async def send_config_ev(bot: Bot, ev: Event):
         # char_name = alias_to_char_name(value)
         # im = await set_waves_user_value(ev, func, uid, char_name)
         im = await set_waves_user_value(ev, func, uid, value)
+    elif "隐藏uid" in ev.text.lower():
+        if not await _ensure_waves_user_row(bot, ev, uid, at_sender):
+            return
+        # 设置隐藏UID → on; 设置取消隐藏UID → off
+        value = "off" if "取消" in ev.text else "on"
+        im = await set_waves_user_value(ev, "隐藏UID", uid, value)
     elif "面板图" in ev.text:
         import re
         from ..utils import panel_card_pref
@@ -205,7 +211,7 @@ async def send_config_ev(bot: Bot, ev: Event):
     else:
         return await _say(bot, at_sender, "请输入正确的设置信息...")
 
-    # 仅 体力背景 分支落到这里 (im 为字符串或非字符串响应); 其它分支早就 return 了。
+    # 体力背景 / 隐藏UID 分支落到这里 (im 为字符串或非字符串响应); 其它分支早就 return 了。
     if isinstance(im, str):
         await _say(bot, at_sender, im.rstrip("\n"))
     else:

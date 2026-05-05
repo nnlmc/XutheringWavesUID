@@ -10,7 +10,7 @@ from gsuid_core.utils.image.convert import convert_img
 from gsuid_core.utils.image.image_tools import crop_center_img
 
 from ..utils.hint import error_reply
-from ..utils.util import async_func_lock, hide_uid
+from ..utils.util import async_func_lock, hide_uid, get_hide_uid_pref
 from ..utils.cache import TimedCache
 from ..utils.image import (
     RED,
@@ -212,6 +212,7 @@ async def draw_refresh_char_detail_img(
     self_ck, ck = await waves_api.get_ck_result(uid, user_id, ev.bot_id)
     if not ck:
         return error_reply(WAVES_CODE_102), 0, None
+    user_pref = await get_hide_uid_pref(uid, user_id, ev.bot_id)
     # 账户数据
     account_info = await waves_api.get_base_info(uid, ck)
     if not account_info.success:
@@ -329,7 +330,7 @@ async def draw_refresh_char_detail_img(
     base_info_bg = Image.open(TEXT_PATH / "base_info_bg.png")
     base_info_draw = ImageDraw.Draw(base_info_bg)
     base_info_draw.text((275, 120), f"{account_info.name[:10]}", "white", waves_font_30, "lm")
-    base_info_draw.text((226, 173), f"特征码:  {hide_uid(account_info.id)}", GOLD, waves_font_25, "lm")
+    base_info_draw.text((226, 173), f"特征码:  {hide_uid(account_info.id, user_pref=user_pref)}", GOLD, waves_font_25, "lm")
     img.paste(base_info_bg, (15, 20), base_info_bg)
 
     # 头像 头像环

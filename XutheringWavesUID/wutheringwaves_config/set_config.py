@@ -6,7 +6,10 @@ from ..utils.name_convert import is_valid_char_name, alias_to_char_name
 from ..utils.database.models import WavesUser
 from ..utils.util import hide_uid
 
-WAVES_USER_MAP = {"体力背景": "stamina_bg"}
+WAVES_USER_MAP = {
+    "体力背景": "stamina_bg",
+    "隐藏UID": "hide_uid_self",
+}
 
 
 def _is_valid_stamina_bg_hash(hash_id: str) -> bool:
@@ -34,6 +37,11 @@ async def set_waves_user_value(ev: Event, func: str, uid: str, value: str):
         )
         == 0
     ):
+        if func == "隐藏UID":
+            # 调度层只会传 on/off; 用 value 做即时回显, 无需再读 DB
+            masked_uid = hide_uid(uid, user_pref=value)
+            action = "已开启" if value == "on" else "已关闭"
+            return f"{action}隐藏UID!\n特征码[{masked_uid}]"
         masked_uid = hide_uid(uid)
         if func == "体力背景":
             if not value:

@@ -8,7 +8,7 @@ from gsuid_core.utils.image.convert import convert_img
 
 from .period import get_tower_period_number
 from ..utils.hint import error_reply
-from ..utils.util import get_version, hide_uid
+from ..utils.util import get_version, hide_uid, get_hide_uid_pref
 from ..utils.image import GOLD, GREY, add_footer, get_waves_bg
 from ..utils.api.model import (
     RoleList,
@@ -72,6 +72,7 @@ async def draw_abyss_img(ev: Event, uid: str, user_id: str) -> Union[bytes, str]
     is_self_ck, ck = await waves_api.get_ck_result(uid, user_id, ev.bot_id)
     if not ck:
         return error_reply(WAVES_CODE_102)
+    user_pref = await get_hide_uid_pref(uid, user_id, ev.bot_id)
 
     # succ, game_info = await waves_api.get_game_role_info(ck)
     # if not succ:
@@ -138,7 +139,7 @@ async def draw_abyss_img(ev: Event, uid: str, user_id: str) -> Union[bytes, str]
     base_info_bg = Image.open(TEXT_PATH / "base_info_bg.png")
     base_info_draw = ImageDraw.Draw(base_info_bg)
     base_info_draw.text((275, 120), f"{account_info.name[:10]}", "white", waves_font_30, "lm")
-    base_info_draw.text((226, 173), f"特征码:  {hide_uid(account_info.id)}", GOLD, waves_font_25, "lm")
+    base_info_draw.text((226, 173), f"特征码:  {hide_uid(account_info.id, user_pref=user_pref)}", GOLD, waves_font_25, "lm")
     card_img.paste(base_info_bg, (15, 20), base_info_bg)
 
     # 头像 头像环

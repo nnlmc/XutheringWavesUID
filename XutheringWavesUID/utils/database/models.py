@@ -28,6 +28,7 @@ exec_list.extend(
         'ALTER TABLE WavesUser ADD COLUMN record_id TEXT DEFAULT ""',
         'ALTER TABLE WavesUser ADD COLUMN platform TEXT DEFAULT ""',
         'ALTER TABLE WavesUser ADD COLUMN stamina_bg_value TEXT DEFAULT ""',
+        'ALTER TABLE WavesUser ADD COLUMN hide_uid_self_value TEXT DEFAULT ""',
         'ALTER TABLE WavesUser ADD COLUMN bbs_sign_switch TEXT DEFAULT "off"',
         'ALTER TABLE WavesUser ADD COLUMN bat TEXT DEFAULT ""',
         'ALTER TABLE WavesUser ADD COLUMN did TEXT DEFAULT ""',
@@ -172,6 +173,7 @@ class WavesUser(User, table=True):
     record_id: Optional[str] = Field(default=None, title="鸣潮记录ID")
     platform: str = Field(default="", title="ck平台")
     stamina_bg_value: str = Field(default="", title="体力背景")
+    hide_uid_self_value: str = Field(default="", title="隐藏UID")
     bbs_sign_switch: str = Field(default="off", title="自动社区签到")
     bat: str = Field(default="", title="bat")
     did: str = Field(default="", title="did")

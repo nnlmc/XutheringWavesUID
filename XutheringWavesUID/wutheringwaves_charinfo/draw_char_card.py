@@ -11,6 +11,7 @@ from gsuid_core.utils.image.convert import convert_img
 from gsuid_core.utils.image.image_tools import get_qq_avatar, crop_center_img
 
 from ..utils import hint
+from ..utils.util import hide_uid, get_hide_uid_pref
 from ..utils.localization import t
 from ..utils.database.models import WavesLangSettings
 from ..utils.waves_api import waves_api
@@ -483,7 +484,7 @@ async def get_role_need(
     return avatar, role_detail
 
 
-async def draw_fixed_img(img, avatar, account_info, role_detail, locale="", uid=None, char_name=None):
+async def draw_fixed_img(img, avatar, account_info, role_detail, locale="", uid=None, char_name=None, user_pref=""):
     # 头像部分
     avatar_ring = Image.open(TEXT_PATH / "avatar_ring.png")
 
@@ -494,7 +495,7 @@ async def draw_fixed_img(img, avatar, account_info, role_detail, locale="", uid=
     base_info_bg = Image.open(TEXT_PATH / "base_info_bg.png")
     base_info_draw = ImageDraw.Draw(base_info_bg)
     draw_text_with_fallback(base_info_draw, (275, 120), f"{account_info.name[:10]}", "white", waves_font_30, "lm")
-    draw_text_with_fallback(base_info_draw, (226, 173), f"{t('特征码:', locale)}  {account_info.id}", GOLD, waves_font_25, "lm")
+    draw_text_with_fallback(base_info_draw, (226, 173), f"{t('特征码:', locale)}  {hide_uid(account_info.id, user_pref=user_pref)}", GOLD, waves_font_25, "lm")
     img.paste(base_info_bg, (35, -30), base_info_bg)
 
     if account_info.is_full:
@@ -587,6 +588,8 @@ async def draw_char_detail_img(
     is_limit_query=False,
 ):
     locale = await WavesLangSettings.get_lang(ev.user_id)
+    # waves_id 时是查别人, 用 self uid 取本人偏好
+    user_pref = await get_hide_uid_pref(waves_id or uid, user_id, ev.bot_id)
     char, damageId = parse_text_and_number(char)
 
     char_id = char_name_to_char_id(char)
@@ -787,7 +790,7 @@ async def draw_char_detail_img(
     # 创建背景
     img = await get_card_bg(1200, 1250 + echo_list + ph_sum_value + jineng_len + dd_len, "bg3")
     # 固定位置
-    await draw_fixed_img(img, avatar, account_info, role_detail, locale, uid=uid, char_name=char_name)
+    await draw_fixed_img(img, avatar, account_info, role_detail, locale, uid=uid, char_name=char_name, user_pref=user_pref)
 
     # 声骸
     img.paste(phantom_temp, (0, 1320 + jineng_len), phantom_temp)
@@ -1058,6 +1061,7 @@ async def draw_char_detail_img(
 async def draw_char_score_img(ev: Event, uid: str, char: str, user_id: str, waves_id: Optional[str] = None, is_limit_query=False):
     from ..utils.calc import WuWaCalc
     locale = await WavesLangSettings.get_lang(ev.user_id)
+    user_pref = await get_hide_uid_pref(waves_id or uid, user_id, ev.bot_id)
     char, damageId = parse_text_and_number(char)
 
     char_id = char_name_to_char_id(char)
@@ -1119,7 +1123,7 @@ async def draw_char_score_img(ev: Event, uid: str, char: str, user_id: str, wave
     # 创建背景
     img = await get_card_bg(1200, 3380, "bg3")
     # 固定位置
-    await draw_fixed_img(img, avatar, account_info, role_detail, locale, uid=uid, char_name=char_name)
+    await draw_fixed_img(img, avatar, account_info, role_detail, locale, uid=uid, char_name=char_name, user_pref=user_pref)
 
     # 声骸属性
     char_id = role_detail.role.roleId

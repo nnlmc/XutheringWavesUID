@@ -11,7 +11,7 @@ from gsuid_core.logger import logger
 from gsuid_core.models import Event
 
 from ..utils.hint import error_reply
-from ..utils.util import hide_uid
+from ..utils.util import hide_uid, get_hide_uid_pref
 from ..utils.waves_api import waves_api
 from ..utils.error_reply import WAVES_CODE_102
 from ..utils.api.model import MatrixDetail, AccountBaseInfo, RoleDetailData
@@ -259,6 +259,7 @@ async def draw_matrix_img(ev: Event, uid: str, user_id: str) -> Union[bytes, str
     is_self_ck, ck = await waves_api.get_ck_result(uid, user_id, ev.bot_id)
     if not ck:
         return error_reply(WAVES_CODE_102)
+    user_pref = await get_hide_uid_pref(uid, user_id, ev.bot_id)
 
     # 矩阵数据
     matrix_detail: Union[MatrixDetail, str] = await get_matrix_data(uid, ck, is_self_ck)
@@ -315,7 +316,7 @@ async def _get_common_context(ev: Event, uid: str, ck: str) -> Union[dict, str]:
 
     return {
         "user_name": account_info.name,
-        "user_id": hide_uid(account_info.id),
+        "user_id": hide_uid(account_info.id, user_pref=user_pref),
         "level": account_info.level,
         "world_level": account_info.worldLevel,
         "show_stats": account_info.is_full,
