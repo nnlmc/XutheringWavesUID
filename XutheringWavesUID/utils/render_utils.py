@@ -13,6 +13,7 @@ from gsuid_core.app_life import app as fastapi_app
 from fastapi.staticfiles import StaticFiles
 from .resource.RESOURCE_PATH import TEMP_PATH
 from ..wutheringwaves_config.wutheringwaves_config import WutheringWavesConfig
+from ..wutheringwaves_config.config_default import CONFIG_DEFAULT as WW_CONFIG_DEFAULT
 
 logging.getLogger("uvicorn.access").addFilter(
     lambda record: "/waves/fonts" not in record.getMessage()
@@ -61,6 +62,13 @@ _pool_generation = 0  # Incremented on browser restart to invalidate stale pages
 
 _FONT_CSS_NAME = "fonts.css"
 _FONTS_DIR = TEMP_PATH / "fonts"
+
+
+def _get_font_css_url() -> str:
+    url = WutheringWavesConfig.get_config("FontCssUrl").data
+    if not url or not str(url).strip():
+        return WW_CONFIG_DEFAULT["FontCssUrl"].data
+    return url
 
 
 def _mount_fonts() -> None:
@@ -251,7 +259,7 @@ async def render_html(waves_templates, template_name: str, context: dict) -> Opt
 
         if remote_render_enable and remote_url:
             try:
-                font_css_url = WutheringWavesConfig.get_config("FontCssUrl").data
+                font_css_url = _get_font_css_url()
                 context["font_css_url"] = font_css_url
                 html_content = template.render(**context)
                 logger.debug(f"[鸣潮] 使用在线字体渲染 HTML: {template_name}")
@@ -271,8 +279,7 @@ async def render_html(waves_templates, template_name: str, context: dict) -> Opt
             if font_css_path.exists():
                 context["font_css_url"] = f"{base_url}/waves/fonts/{_FONT_CSS_NAME}"
             else:
-                font_css_url = WutheringWavesConfig.get_config("FontCssUrl").data
-                context["font_css_url"] = font_css_url
+                context["font_css_url"] = _get_font_css_url()
 
             html_content = template.render(**context)
             logger.debug(f"[鸣潮] 使用本地字体渲染 HTML: {template_name}")
