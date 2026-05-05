@@ -31,6 +31,10 @@ async def send_rank_card(bot: Bot, ev: Event):
         .replace("练度", "").replace("本群", "").replace("群", "")
     )
 
+    from ..wutheringwaves_config import PREFIX, WutheringWavesConfig
+    if rank_type == "伤害" and not WutheringWavesConfig.get_config("WavesToken").data:
+        rank_type = "评分"
+
     res = None
     canonical_cmd = None
     if char:
@@ -38,7 +42,6 @@ async def send_rank_card(bot: Bot, ev: Event):
         if not res.ok:
             return await bot.send(res.fail_msg())
         char = res.matched
-        from ..wutheringwaves_config import PREFIX
         if rank_type == "评分":
             canonical_cmd = f"{PREFIX}{char}评分排行"
         else:
