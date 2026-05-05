@@ -3,6 +3,7 @@ from typing import Dict, Optional
 from gsuid_core.models import Event
 from gsuid_core.logger import logger
 
+from ..utils.util import hide_uid
 from ..utils.waves_api import waves_api
 from ..wutheringwaves_config import WutheringWavesConfig
 from ..utils.api.model import (
@@ -180,7 +181,7 @@ async def draw_reward_img(uid: str, ck: str, ev: Event):
         score_data = await calculate_score(uid, ck)
         if not score_data:
             return "获取数据失败，请先登录，或尝试刷新面板！"
-        return f"UID {uid} 伴行积分：{score_data['total_score']}，{score_data['char_weapon_total_capped']}分（角色{score_data['char_score_raw']}分 + 武器{score_data['weapon_score_raw']}分） + 成就{score_data['achievement_score']}分 + 活跃天数{score_data['active_days_score']}分"
+        return f"UID {hide_uid(uid)} 伴行积分：{score_data['total_score']}，{score_data['char_weapon_total_capped']}分（角色{score_data['char_score_raw']}分 + 武器{score_data['weapon_score_raw']}分） + 成就{score_data['achievement_score']}分 + 活跃天数{score_data['active_days_score']}分"
 
     # 计算积分
     score_data = await calculate_score(uid, ck)
@@ -200,7 +201,7 @@ async def draw_reward_img(uid: str, ck: str, ev: Event):
     # 准备模板数据
     context = {
         "user_name": account_info.name,
-        "user_id": account_info.id,
+        "user_id": hide_uid(account_info.id),
         "level": account_info.level or 0,
         "world_level": account_info.worldLevel or 0,
         "show_stats": account_info.is_full,
@@ -232,4 +233,4 @@ async def draw_reward_img(uid: str, ck: str, ev: Event):
         return img_bytes
     else:
         logger.warning("[鸣潮] 积分卡片渲染失败")
-        return f"UID {uid} 伴行积分：{score_data['total_score']}，{score_data['char_weapon_total_capped']}分（角色{score_data['char_score_raw']}分 + 武器{score_data['weapon_score_raw']}分） + 成就{score_data['achievement_score']}分 + 活跃天数{score_data['active_days_score']}分"
+        return f"UID {hide_uid(uid)} 伴行积分：{score_data['total_score']}，{score_data['char_weapon_total_capped']}分（角色{score_data['char_score_raw']}分 + 武器{score_data['weapon_score_raw']}分） + 成就{score_data['achievement_score']}分 + 活跃天数{score_data['active_days_score']}分"

@@ -14,7 +14,7 @@ from gsuid_core.utils.image.convert import convert_img
 
 from .slash_rank import get_avatar
 from .rank_badge import draw_rank_badge
-from ..utils.util import get_version
+from ..utils.util import get_version, hide_uid
 from ..utils.cache import TimedCache
 from ..utils.image import (
     RED,
@@ -197,7 +197,7 @@ async def draw_total_rank(bot: Bot, ev: Event, pages: int) -> Union[str, bytes]:
         uid_color = "white"
         if detail.waves_id == self_uid:
             uid_color = RED
-        bar_draw.text((350, 40), f"特征码: {detail.waves_id}", uid_color, waves_font_20, "lm")
+        bar_draw.text((350, 40), f"特征码: {hide_uid(detail.waves_id)}", uid_color, waves_font_20, "lm")
 
         # bot主人名字
         botName = getattr(detail, "alias_name", None)

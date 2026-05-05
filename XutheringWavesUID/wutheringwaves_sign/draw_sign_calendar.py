@@ -9,6 +9,7 @@ from gsuid_core.models import Event
 from ..utils.api.model import AccountBaseInfo, SignInInitData, SignInSurfaceData
 from ..utils.api.request_util import KuroApiResp
 from ..utils.at_help import ruser_id
+from ..utils.util import hide_uid
 from ..utils.error_reply import ERROR_CODE, WAVES_CODE_102, WAVES_CODE_103
 from ..utils.render_utils import render_html, get_image_b64_with_cache
 from ..utils.resource.RESOURCE_PATH import (
@@ -141,7 +142,7 @@ async def draw_sign_calendar(uid: str, ev: Event) -> Optional[bytes | str]:
         "month_textColor": month_textColor,
         "cycle_titleColor": cycle_titleColor,
         "role_name": role_name,
-        "uid": uid,
+        "uid": hide_uid(uid),
         "month": month,
         "sign_num": sign_data.sigInNum,
         "omission_num": sign_data.omissionNnm,

@@ -5,6 +5,7 @@ from gsuid_core.models import Event
 from gsuid_core.logger import logger
 
 from ..utils.hint import error_reply
+from ..utils.util import hide_uid
 from ..utils.waves_api import waves_api
 from ..utils.error_reply import WAVES_CODE_102
 from ..utils.api.model import ChallengeArea, AccountBaseInfo, RoleDetailData
@@ -152,7 +153,7 @@ async def draw_challenge_img(ev: Event, uid: str, user_id: str) -> Union[bytes, 
 
         context = {
             "user_name": account_info.name,
-            "user_id": account_info.id,
+            "user_id": hide_uid(account_info.id),
             "level": account_info.level,
             "world_level": account_info.worldLevel,
             "show_stats": account_info.is_full,

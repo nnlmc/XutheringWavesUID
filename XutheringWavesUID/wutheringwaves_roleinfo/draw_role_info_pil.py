@@ -8,6 +8,7 @@ from gsuid_core.utils.image.convert import convert_img
 
 from ..wutheringwaves_config import PREFIX
 
+from ..utils.util import hide_uid
 from ..utils.image import (
     GOLD,
     GREY,
@@ -206,7 +207,7 @@ async def draw_role_img(uid: str, ck: str, ev: Event):
     base_info_bg = Image.open(TEXT_PATH / "base_info_bg.png")
     base_info_draw = ImageDraw.Draw(base_info_bg)
     base_info_draw.text((275, 120), f"{account_info.name[:10]}", "white", waves_font_30, "lm")
-    base_info_draw.text((226, 173), f"特征码:  {account_info.id}", GOLD, waves_font_25, "lm")
+    base_info_draw.text((226, 173), f"特征码:  {hide_uid(account_info.id)}", GOLD, waves_font_25, "lm")
     card_img.paste(base_info_bg, (35, 170), base_info_bg)
 
     # 头像 头像环

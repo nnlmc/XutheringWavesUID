@@ -4,6 +4,7 @@ from gsuid_core.bot import Bot
 from gsuid_core.models import Event
 
 from ..utils.api.model import KuroWavesUserInfo
+from ..utils.util import hide_uid
 from ..utils.constants import PGR_GAME_ID, WAVES_GAME_ID
 from ..utils.waves_api import waves_api
 from ..utils.error_reply import ERROR_CODE, WAVES_CODE_103
@@ -170,9 +171,9 @@ async def add_cookie(ev: Event, ck: str, did: str, is_login: bool = False) -> st
 
     msg = []
     for role in role_list:
-        msg.append(f"[鸣潮]【{role['名字']}】特征码【{role['特征码']}】登录成功!")
+        msg.append(f"[鸣潮]【{role['名字']}】特征码【{hide_uid(role['特征码'])}】登录成功!")
     for role in pgr_list:
-        msg.append(f"[战双]【{role['名字']}】UID【{role['特征码']}】记录成功!")
+        msg.append(f"[战双]【{role['名字']}】UID【{hide_uid(role['特征码'])}】记录成功!")
     return "\n".join(msg)
 
 
@@ -210,7 +211,7 @@ async def refresh_bind(ev: Event) -> str:
                     await WavesBind.switch_uid_by_game(ev.user_id, ev.bot_id, data.roleId)
                 if data.roleId not in seen_waves:
                     seen_waves.add(data.roleId)
-                    waves_msg.append(f"[鸣潮]已刷新特征码【{data.roleId}】")
+                    waves_msg.append(f"[鸣潮]已刷新特征码【{hide_uid(data.roleId)}】")
 
         if pgr_roles:
             for role in pgr_roles:
@@ -229,7 +230,7 @@ async def refresh_bind(ev: Event) -> str:
                     await WavesBind.switch_uid_by_game(ev.user_id, ev.bot_id, data.roleId, game_name="pgr")
                 if data.roleId not in seen_pgr:
                     seen_pgr.add(data.roleId)
-                    pgr_msg.append(f"[战双]已刷新特征码【{data.roleId}】")
+                    pgr_msg.append(f"[战双]已刷新特征码【{hide_uid(data.roleId)}】")
 
     if not waves_msg and not pgr_msg:
         if invalid:
@@ -241,9 +242,10 @@ async def refresh_bind(ev: Event) -> str:
 
 async def delete_cookie(ev: Event, uid: str) -> str:
     count = await WavesUser.delete_cookie(uid, ev.user_id, ev.bot_id, game_id=WAVES_GAME_ID)
+    masked_uid = hide_uid(uid)
     if count == 0:
-        return f"[鸣潮] 特征码[{uid}]的token删除失败!\n❌不存在该特征码的token!\n"
-    return f"[鸣潮] 特征码[{uid}]的token删除成功!\n"
+        return f"[鸣潮] 特征码[{masked_uid}]的token删除失败!\n❌不存在该特征码的token!\n"
+    return f"[鸣潮] 特征码[{masked_uid}]的token删除成功!\n"
 
 
 async def get_cookie(bot: Bot, ev: Event) -> Union[List[str], str]:

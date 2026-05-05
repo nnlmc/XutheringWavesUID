@@ -23,6 +23,7 @@ from gsuid_core.web_app import app
 
 from ..utils.api.model import AccountBaseInfo
 from ..utils.cache import TimedCache
+from ..utils.util import hide_uid
 from ..utils.resource.RESOURCE_PATH import (
     AVATAR_PATH,
     MAIN_PATH,
@@ -55,7 +56,7 @@ def feature_disabled_msg() -> str:
 
 async def _build_account_info(uid: str, ev: Event) -> Dict:
     """尽力获取账号基础信息，失败回退到仅 uid。"""
-    info: Dict = {"uid": uid}
+    info: Dict = {"uid": hide_uid(uid)}
     # 优先：core 适配器传入的 avatar URL（QQ 官方 / Discord / KOOK 等都会带）
     sender_avatar = (ev.sender or {}).get("avatar") or ""
     if isinstance(sender_avatar, str) and sender_avatar.startswith(("http://", "https://")):
@@ -64,7 +65,7 @@ async def _build_account_info(uid: str, ev: Event) -> Dict:
     if ev.bot_id == "onebot" and str(ev.user_id).isdigit():
         info["qq_avatar"] = f"//q1.qlogo.cn/g?b=qq&nk={ev.user_id}&s=640"
     if waves_api.is_net(uid):
-        info["name"] = f"漂泊者·{uid}"
+        info["name"] = f"漂泊者·{hide_uid(uid)}"
         info["is_net"] = True
         return info
     info["is_net"] = False

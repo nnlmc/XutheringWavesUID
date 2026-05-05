@@ -18,7 +18,7 @@ from gsuid_core.models import Event
 from gsuid_core.utils.image.convert import convert_img
 from gsuid_core.utils.image.image_tools import crop_center_img
 
-from ..utils.util import get_version
+from ..utils.util import get_version, hide_uid
 from ..utils.cache import TimedCache
 from ..utils.image import (
     RED,
@@ -313,7 +313,7 @@ async def draw_all_matrix_rank_card(bot: Bot, ev: Event):
         uid_color = "white"
         if rank_temp.waves_id == item.waves_id:
             uid_color = RED
-        role_bg_draw.text((210, 40), f"{rank_temp.waves_id}", uid_color, waves_font_20, "lm")
+        role_bg_draw.text((210, 40), f"{hide_uid(rank_temp.waves_id)}", uid_color, waves_font_20, "lm")
 
         # 原特征码位置 → 显示上场队伍数量（未登录时为0，不显示）
         team_count = rank_temp.team_count if rank_temp.team_count else len(rank_temp.teams)

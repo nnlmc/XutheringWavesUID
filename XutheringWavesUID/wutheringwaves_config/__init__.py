@@ -6,6 +6,7 @@ from .set_config import set_waves_user_value
 from .wutheringwaves_config import WutheringWavesConfig, ShowConfig
 from ..utils.constants import WAVES_GAME_ID
 from ..utils.database.models import WavesBind, WavesLangSettings, WavesUser
+from ..utils.util import hide_uid
 
 
 sv_self_config = SV("waves配置", priority=3)
@@ -32,7 +33,7 @@ async def _ensure_waves_user_row(bot: Bot, ev: Event, uid: str, at_sender: bool)
         return True
     from ..utils.error_reply import ERROR_CODE, WAVES_CODE_102
 
-    msg = f"当前特征码：{uid}\n{ERROR_CODE[WAVES_CODE_102].rstrip(chr(10))}"
+    msg = f"当前特征码：{hide_uid(uid)}\n{ERROR_CODE[WAVES_CODE_102].rstrip(chr(10))}"
     await _say(bot, at_sender, msg)
     return False
 
@@ -114,7 +115,7 @@ async def send_config_ev(bot: Bot, ev: Event):
         panel_card_pref.set_pin(uid, pin_key, hash_id)
         return await _say(
             bot, at_sender,
-            f"设置成功!\n特征码[{uid}]\n角色【{pin_key}】面板图已绑定到 id【{hash_id}】",
+            f"设置成功!\n特征码[{hide_uid(uid)}]\n角色【{pin_key}】面板图已绑定到 id【{hash_id}】",
         )
     elif "群排行" in ev.text:
         if not await _ensure_group_admin(bot, ev, at_sender, "群排行"):

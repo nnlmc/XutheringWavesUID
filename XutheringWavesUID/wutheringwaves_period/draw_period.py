@@ -13,6 +13,7 @@ from gsuid_core.utils.image.convert import convert_img
 from gsuid_core.utils.image.image_tools import crop_center_img
 
 from ..utils.at_help import ruser_id
+from ..utils.util import hide_uid
 from ..utils.waves_api import waves_api
 from ..wutheringwaves_config import PREFIX
 from ..utils.database.models import WavesBind
@@ -327,7 +328,7 @@ async def _draw_period_img(ev: Event, valid: Dict):
     title_img = Image.open(TEXT_PATH / "top-bg.png")
     title_img_draw = ImageDraw.Draw(title_img)
     title_img_draw.text((240, 75), f"{account_info.name}", "black", waves_font_36, "lm")
-    title_img_draw.text((240, 140), f"特征码: {account_info.id}", "black", waves_font_24, "lm")
+    title_img_draw.text((240, 140), f"特征码: {hide_uid(account_info.id)}", "black", waves_font_24, "lm")
 
     avatar_img = await draw_pic_with_ring(ev)
     title_img.paste(avatar_img, (27, 8), avatar_img)

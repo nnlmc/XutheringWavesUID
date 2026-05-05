@@ -17,7 +17,7 @@ from gsuid_core.models import Event
 from gsuid_core.utils.image.convert import convert_img
 from gsuid_core.utils.image.image_tools import crop_center_img
 
-from ..utils.util import get_version
+from ..utils.util import get_version, hide_uid
 from ..utils.cache import TimedCache
 from ..utils.image import (
     RED,
@@ -301,7 +301,7 @@ async def draw_all_slash_rank_card(bot: Bot, ev: Event):
         uid_color = "white"
         if rank_temp.waves_id == item.waves_id:
             uid_color = RED
-        role_bg_draw.text((350, 40), f"特征码: {rank_temp.waves_id}", uid_color, waves_font_20, "lm")
+        role_bg_draw.text((350, 40), f"特征码: {hide_uid(rank_temp.waves_id)}", uid_color, waves_font_20, "lm")
 
         # bot主人名字
         botName = rank_temp.alias_name if rank_temp.alias_name else ""

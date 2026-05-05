@@ -12,6 +12,7 @@ from gsuid_core.segment import MessageSegment
 from gsuid_core.data_store import get_res_path
 
 from ..utils.cache import TimedCache
+from ..utils.util import hide_uid
 from .gacha_handler import fetch_mcgf_data, merge_gacha_data
 from .get_gachalogs import save_gachalogs, export_gachalogs, import_gachalogs
 from .draw_gachalogs import draw_card, draw_card_help
@@ -136,14 +137,14 @@ async def get_gacha_log_by_link(bot: Bot, ev: Event):
         return await bot.send(ERROR_MSG_NOTIFY)
 
     if player_id and player_id != uid:
-        ERROR_MSG = f"请保证抽卡链接的特征码与当前正在使用的特征码一致\n\n请使用以下命令核查:\n{PREFIX}查看\n{PREFIX}切换{player_id}"
+        ERROR_MSG = f"请保证抽卡链接的特征码与当前正在使用的特征码一致\n\n请使用以下命令核查:\n{PREFIX}查看\n{PREFIX}切换{hide_uid(player_id)}"
         return await bot.send(ERROR_MSG)
 
     is_force = False
     if ev.command.startswith("强制"):
         await bot.logger.info("[WARNING]本次为强制刷新")
         is_force = True
-    await bot.send(f"UID{uid}开始执行[刷新抽卡记录],需要一定时间，请稍等!\n官方仅保存近180天抽卡记录，仅更新该部分。")
+    await bot.send(f"UID{hide_uid(uid)}开始执行[刷新抽卡记录],需要一定时间，请稍等!\n官方仅保存近180天抽卡记录，仅更新该部分。")
     im = await save_gachalogs(ev, uid, record_id, is_force)
 
     # 设置冷却缓存
@@ -237,12 +238,12 @@ async def delete_gacha_history(bot: Bot, ev: Event):
 
     is_self, ck = await waves_api.get_ck_result(uid, ev.user_id, ev.bot_id)
     if (not ck or not is_self) and not ev.user_pm == 0:
-        return await bot.send(f"UID{uid}未登录或Cookie失效，不允许删除抽卡记录")
+        return await bot.send(f"UID{hide_uid(uid)}未登录或Cookie失效，不允许删除抽卡记录")
 
     player_dir = PLAYER_PATH / uid
     gacha_log_file = player_dir / "gacha_logs.json"
     if not gacha_log_file.exists():
-        return await bot.send(f"UID{uid}暂无抽卡记录文件")
+        return await bot.send(f"UID{hide_uid(uid)}暂无抽卡记录文件")
 
     GACHA_BACKUP_PATH.mkdir(parents=True, exist_ok=True)
     backup_dir = GACHA_BACKUP_PATH / uid
@@ -258,7 +259,7 @@ async def delete_gacha_history(bot: Bot, ev: Event):
     except Exception as e:
         return await bot.send(f"移动抽卡记录失败：{e}")
 
-    await bot.send(f"UID{uid}抽卡记录已删除！")
+    await bot.send(f"UID{hide_uid(uid)}抽卡记录已删除！")
 
 
 @sv_delete_import_gacha_log.on_command(("删除抽卡导入", "删除导入记录", "删除导入抽卡"), block=True)

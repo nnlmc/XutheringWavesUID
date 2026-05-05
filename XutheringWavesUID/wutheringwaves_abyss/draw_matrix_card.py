@@ -11,6 +11,7 @@ from gsuid_core.logger import logger
 from gsuid_core.models import Event
 
 from ..utils.hint import error_reply
+from ..utils.util import hide_uid
 from ..utils.waves_api import waves_api
 from ..utils.error_reply import WAVES_CODE_102
 from ..utils.api.model import MatrixDetail, AccountBaseInfo, RoleDetailData
@@ -314,7 +315,7 @@ async def _get_common_context(ev: Event, uid: str, ck: str) -> Union[dict, str]:
 
     return {
         "user_name": account_info.name,
-        "user_id": account_info.id,
+        "user_id": hide_uid(account_info.id),
         "level": account_info.level,
         "world_level": account_info.worldLevel,
         "show_stats": account_info.is_full,
@@ -536,7 +537,7 @@ async def _draw_matrix_detail_html(
 
 def _draw_matrix_text_fallback(uid: str, matrix_detail: MatrixDetail) -> str:
     """文本回退 (无 PIL / HTML 时)"""
-    lines = [f"[终焉矩阵] 特征码: {uid}"]
+    lines = [f"[终焉矩阵] 特征码: {hide_uid(uid)}"]
     for mode in matrix_detail.modeDetails:
         if not mode.hasRecord:
             continue

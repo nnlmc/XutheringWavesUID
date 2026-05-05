@@ -5,6 +5,7 @@ from gsuid_core.models import Event
 from gsuid_core.logger import logger
 from gsuid_core.data_store import get_res_path
 
+from ..utils.util import hide_uid
 from ..utils.waves_api import waves_api
 from ..wutheringwaves_config import WutheringWavesConfig, PREFIX
 from ..utils.api.model import (
@@ -165,7 +166,7 @@ async def draw_role_img(uid: str, ck: str, ev: Event):
         # 准备模板数据
         context = {
             "user_name": account_info.name[:10],
-            "user_id": account_info.id,
+            "user_id": hide_uid(account_info.id),
             "level": account_info.level if account_info.is_full else 0,
             "world_level": account_info.worldLevel if account_info.is_full else 0,
             "show_stats": account_info.is_full,

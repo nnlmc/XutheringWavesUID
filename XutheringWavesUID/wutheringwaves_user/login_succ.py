@@ -6,6 +6,7 @@ from gsuid_core.models import Event
 
 from ..utils.button import WavesButton
 from ..utils.database.models import WavesUser, WavesUserSdk
+from ..utils.util import hide_uid
 from ..wutheringwaves_config import PREFIX
 
 
@@ -53,14 +54,15 @@ async def login_success_msg(
 
     if uid.isdigit() and len(uid) == 9:
         suffix = await _region_suffix(ev.user_id, ev.bot_id, uid)
+        masked_uid = hide_uid(uid)
         if suffix:
             text = (
-                f"[鸣潮]{name_tag} 已绑定特征码【{uid}】{suffix}\n"
+                f"[鸣潮]{name_tag} 已绑定特征码【{masked_uid}】{suffix}\n"
                 f"支持查看 {PREFIX}体力。面板相关请使用 {PREFIX}分析帮助"
             )
         else:
             text = (
-                f"[鸣潮]{name_tag} 已绑定特征码【{uid}】\n"
+                f"[鸣潮]{name_tag} 已绑定特征码【{masked_uid}】\n"
                 f"发送【{PREFIX}切换】可切换到其他鸣潮特征码"
             )
     else:

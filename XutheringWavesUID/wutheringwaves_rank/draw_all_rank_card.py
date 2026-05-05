@@ -13,7 +13,7 @@ from gsuid_core.models import Event
 from gsuid_core.utils.image.convert import convert_img
 
 from .rank_badge import draw_rank_badge
-from ..utils.util import get_version
+from ..utils.util import get_version, hide_uid
 from ..utils.cache import TimedCache
 from ..utils.image import (
     RED,
@@ -322,7 +322,7 @@ async def draw_all_rank_card(bot: Bot, ev: Event, char: str, rank_type: str, pag
         uid_color = "white"
         if is_self_ck and self_uid == rank.waves_id:
             uid_color = RED
-        bar_star_draw.text((350, 40), f"特征码: {rank.waves_id}", uid_color, waves_font_20, "lm")
+        bar_star_draw.text((350, 40), f"特征码: {hide_uid(rank.waves_id)}", uid_color, waves_font_20, "lm")
 
         # bot主人名字
         botName = rank.alias_name if rank.alias_name else ""

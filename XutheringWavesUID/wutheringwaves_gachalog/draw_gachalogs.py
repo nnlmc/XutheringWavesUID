@@ -17,6 +17,7 @@ from gsuid_core.utils.image.convert import convert_img
 from gsuid_core.utils.image.image_tools import crop_center_img
 
 from ..utils import hint
+from ..utils.util import hide_uid
 from ..utils.image import (
     GOLD,
     add_footer,
@@ -601,7 +602,7 @@ async def draw_uid_avatar(uid, ev, card_img):
     if waves_api.is_net(uid):
         title = Image.open(TEXT_PATH / "title.png")
         base_info_draw = ImageDraw.Draw(title)
-        base_info_draw.text((346, 370), f"特征码:  {uid}", GOLD, waves_font_25, "lm")
+        base_info_draw.text((346, 370), f"特征码:  {hide_uid(uid)}", GOLD, waves_font_25, "lm")
 
         avatar = await draw_pic_with_ring(ev)
         avatar_ring = Image.open(TEXT_PATH / "avatar_ring.png")
@@ -626,7 +627,7 @@ async def draw_uid_avatar(uid, ev, card_img):
         base_info_bg = Image.open(TEXT_PATH / "base_info_bg.png")
         base_info_draw = ImageDraw.Draw(base_info_bg)
         base_info_draw.text((275, 120), f"{account_info.name[:10]}", "white", waves_font_30, "lm")
-        base_info_draw.text((226, 173), f"特征码:  {account_info.id}", GOLD, waves_font_25, "lm")
+        base_info_draw.text((226, 173), f"特征码:  {hide_uid(account_info.id)}", GOLD, waves_font_25, "lm")
         base_info_bg = base_info_bg.resize((900, 450))
         card_img.alpha_composite(base_info_bg, (110, 30))
         #

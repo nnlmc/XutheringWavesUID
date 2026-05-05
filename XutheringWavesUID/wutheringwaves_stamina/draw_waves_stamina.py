@@ -30,6 +30,7 @@ from ..utils.image import (
 )
 from ..utils.api.model import DailyData, AccountBaseInfo
 from ..utils.api.launcher_chain import fetch_launcher_panel
+from ..utils.util import hide_uid
 from ..utils.constants import WAVES_GAME_ID
 from ..utils.at_help import ruser_id
 from ..utils.waves_api import waves_api
@@ -579,7 +580,7 @@ async def _render_stamina_card(
         "locale": locale,
         "user_name": daily_info.roleName,
         "role_id": daily_info.roleId,
-        "uid": daily_info.roleId,
+        "uid": hide_uid(daily_info.roleId),
         "avatar_url": pil_to_b64(avatar, quality=75),
         "pile_url": compress_and_b64(pile),
         "has_bg": has_bg,
@@ -709,7 +710,7 @@ async def _render_stamina_card_pil(
 
     base_info_draw = ImageDraw.Draw(base_info_bg)
     base_info_draw.text((275, 120), f"{daily_info.roleName[:7]}", GREY, waves_font_30, "lm")
-    base_info_draw.text((226, 173), f"{t('特征码:', locale)}  {daily_info.roleId}", GOLD, waves_font_25, "lm")
+    base_info_draw.text((226, 173), f"{t('特征码:', locale)}  {hide_uid(daily_info.roleId)}", GOLD, waves_font_25, "lm")
     # 账号基本信息，由于可能会没有，放在一起
 
     title_bar = Image.open(TEXT_PATH / "title_bar.png")
