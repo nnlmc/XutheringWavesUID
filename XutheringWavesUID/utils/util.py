@@ -172,15 +172,15 @@ def generate_random_ipv4_manual():
     return ".".join([str(random.randint(0, 255)) for _ in range(4)])
 
 
-def hide_uid(uid: str) -> str:
+def hide_uid(uid) -> str:
     from ..wutheringwaves_config import WutheringWavesConfig
 
-    HideUid = WutheringWavesConfig.get_config("HideUid").data
-    if not HideUid:
-        return uid
-    if len(uid) < 2:
-        return uid
-    return uid[:2] + "*" * 4 + uid[-2:]
+    uid_str = str(uid) if uid is not None else ""
+    if not WutheringWavesConfig.get_config("HideUid").data:
+        return uid_str
+    if len(uid_str) < 2:
+        return uid_str
+    return uid_str[:2] + "*" * 4 + uid_str[-2:]
 
 
 def clean_tags(text: str) -> str:
