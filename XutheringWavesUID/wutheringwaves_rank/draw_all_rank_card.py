@@ -385,7 +385,7 @@ async def draw_all_rank_card(bot: Bot, ev: Event, char: str, rank_type: str, pag
     img_temp = Image.new("RGBA", char_mask2.size)
     img_temp.alpha_composite(title, (-300, 0))
     # 人物bg
-    pile = await get_role_pile_default(char_id, custom=True)
+    pile, _ = await get_role_pile_default(char_id, custom=True)
     img_temp.alpha_composite(pile, (600, -120))
 
     img_temp2 = Image.new("RGBA", char_mask2.size)

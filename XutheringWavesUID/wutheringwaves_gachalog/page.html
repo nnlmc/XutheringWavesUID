@@ -233,6 +233,7 @@ body::after {
 }
 .timestamp-line {
   display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; row-gap: 4px; column-gap: 12px;
   margin-top: 12px;
   font-family: var(--mono);
   font-size: 10px;
@@ -249,6 +250,13 @@ body::after {
   0%, 100% { opacity: .4; transform: scale(1); }
   50% { opacity: 1; transform: scale(1.3); }
 }
+/* 窄屏 (手机竖屏) 时改为竖排, 避免单行被时间戳挤到换行 */
+@media (max-width: 480px) {
+  .timestamp-line { flex-direction: column; align-items: flex-start; row-gap: 4px; }
+}
+
+/* 池标题 (仅在 export-mode 渲染时可见; 普通模式下由 tab-strip 提供导航) */
+.pool-title { display: none; }
 
 /* === Tabs === */
 .tab-strip {
@@ -434,9 +442,9 @@ body::after {
 .fs-pkg { margin-bottom: 4px; }
 .fs-card {
   display: grid;
-  /* icon | 名称+UP/歪(固定 7 字 ≈ 94px + UP 44px + 内 gap 6px = 144) | 进度条 | pity | caret
+  /* icon | 名称+UP/歪(固定 5 字 ≈ 70px + UP 44px + 内 gap 6px = 120) | 进度条 | pity | caret
      固定中段宽度让所有行的进度条左边线对齐。 */
-  grid-template-columns: 32px 144px minmax(80px, 1fr) auto auto;
+  grid-template-columns: 32px 120px minmax(80px, 1fr) auto auto;
   gap: 8px;
   padding: 5px 8px;
   align-items: center;
@@ -478,8 +486,7 @@ body::after {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   flex: 0 1 auto;
   min-width: 0;
-  /* 上限 ≈ 7 个中文字, 超出截断为 ellipsis, 让 UP/歪 紧跟其后并对齐 */
-  max-width: 94px;
+  max-width: 70px;
 }
 .fs-card.is-wai .fs-name { color: var(--silver); }
 .fs-tags { display: inline-flex; gap: 4px; align-items: center; flex: 0 0 auto; }
@@ -731,9 +738,22 @@ body::after {
 }
 
 /* export-mode tweaks: html2canvas 不支持 sticky/backdrop-filter/background-clip:text 等 */
-.export-mode .tab-strip { position: static; }
+/* 导出时不需要 tab 导航; 各池由 .pool-title 自带标题分隔 */
+.export-mode .tab-strip { display: none !important; }
 .export-mode .fab, .export-mode .toast { display: none !important; }
 .export-mode .pool-section { display: block !important; }
+.export-mode .pool-title {
+  display: block;
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--gold-soft);
+  margin: 28px 4px 14px;
+  padding-left: 12px;
+  border-left: 3px solid var(--gold-soft);
+  letter-spacing: .1em;
+  text-shadow: 0 1px 2px rgba(0,0,0,.4);
+}
 .export-mode body::after { animation: none; }
 /* 渲染前回退到纯色文字, 否则 background-clip:text + transparent 在导出时变空白 */
 .export-mode .title-zh {
@@ -765,8 +785,6 @@ body::after {
 .export-mode .pity-bar > i.normal  { background: #d9a749 !important; }
 .export-mode .pity-bar > i.unlucky { background: #d93b56 !important; }
 .export-mode .pity-bar { background: #0a0e1c !important; }
-/* tab-strip 在导出时也半透明会失真 */
-.export-mode .tab-strip { background: #07091a; backdrop-filter: none; }
 </style>
 </head>
 <body>
@@ -902,12 +920,12 @@ function renderHeader(base, dataTime, now) {
   const stats = isNet ? [
     ['—', '等级'],
     ['—', '世界等级'],
-    ['—', '活跃天数'],
+    ['—', '活跃'],
     ['—', '角色'],
   ] : [
     [base.level ?? '—', '等级'],
     [base.worldLevel ?? '—', '世界'],
-    [base.activeDays ?? '—', '活跃天数'],
+    [base.activeDays ?? '—', '活跃'],
     [base.roleNum ?? '—', '角色'],
   ];
   const namePart = esc(base.name || `特征码 ${base.uid}`);
@@ -969,9 +987,12 @@ function renderTabs(pools) {
 }
 
 function renderPool(pool, idx, active) {
+  // pool-title 默认隐藏, 仅 export-mode 显示, 用于导出 PNG 时分隔每个池
+  const titleHTML = `<h2 class="pool-title">${esc(pool.name)}</h2>`;
   if (!pool.total) {
     return `
       <section class="pool-section ${active ? 'active' : ''}" id="pool-${idx}">
+        ${titleHTML}
         <div class="empty-pool">「${esc(pool.name)}」暂无唤取数据</div>
       </section>`;
   }
@@ -990,6 +1011,7 @@ function renderPool(pool, idx, active) {
 
   return `
     <section class="pool-section ${active ? 'active' : ''}" id="pool-${idx}">
+      ${titleHTML}
       <div class="pool-stats">
         <div class="metric"><div class="v">${esc(pool.total)}</div><div class="l">总抽数</div></div>
         <div class="metric"><div class="v gold">${esc(pool.five_count)}</div><div class="l">五星</div></div>

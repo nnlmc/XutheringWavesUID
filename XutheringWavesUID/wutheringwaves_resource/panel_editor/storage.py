@@ -17,11 +17,12 @@ from ...utils import name_convert
 from ...utils.name_convert import easy_id_to_name
 from ...utils.resource.RESOURCE_PATH import (
     BAKE_PATH,
-    CUSTOM_CARD_PATH,
-    CUSTOM_MR_BG_PATH,
-    CUSTOM_MR_CARD_PATH,
+    CUSTOM_DIRS as TYPE_PATHS,
+    IMAGE_EXTS,
     MAIN_PATH,
 )
+# 整个插件 SHA256[:8] 唯一实现; 也兼做临时上传 token 的随机化后缀。
+from ...wutheringwaves_charinfo.card_hash_index import compute_hash as hash_id_for
 
 
 # 严格白名单, 防止 char_id / token 触发路径穿越或越权写入。
@@ -49,15 +50,6 @@ def is_safe_name(s: object) -> bool:
 def is_safe_token(s: object) -> bool:
     return isinstance(s, str) and bool(_SAFE_TOKEN.match(s))
 
-
-# 类型 -> 真实存储路径
-TYPE_PATHS = {
-    "card": CUSTOM_CARD_PATH,           # 角色面板图 (custom_role_pile)
-    "bg": CUSTOM_MR_BG_PATH,            # 每日 MR 背景图 (custom_mr_bg)
-    "stamina": CUSTOM_MR_CARD_PATH,     # 每日 MR 立绘 (custom_mr_role_pile)
-}
-
-IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 
 # 临时上传与裁剪原图保存目录
 PANEL_EDIT_TMP = MAIN_PATH / "panel_edit_tmp"
@@ -126,10 +118,6 @@ def iter_images(path: Path) -> Iterable[Path]:
     for p in sorted(path.iterdir(), key=lambda p: p.name):
         if p.is_file() and p.suffix.lower() in IMAGE_EXTS:
             yield p
-
-
-def hash_id_for(name: str) -> str:
-    return hashlib.sha256(name.encode()).hexdigest()[:8]
 
 
 def _is_char_id(s: str) -> bool:

@@ -220,6 +220,10 @@ async def render_mr_preview(
     sing_in_text = "签到已完成！"
     active_text = "活跃度未满！"
 
+    # 预览的目标本身就是自定义图, 计算 hash 让用户看到将来命中时的标记
+    from ...wutheringwaves_charinfo.card_hash_index import compute_hash
+    pile_hash = compute_hash(image_path.name)
+
     if use_html:
         try:
             img = await _render_stamina_card(
@@ -228,6 +232,7 @@ async def render_mr_preview(
                 sign_in_status=daily_info.hasSignIn, sign_in_text=sing_in_text,
                 active_status=False, active_text=active_text,
                 avatar=await get_event_avatar(ev), locale="", from_sdk=False,
+                pile_hash=pile_hash,
             )
         except Exception as e:
             logger.exception(f"[鸣潮·面板编辑] HTML MR 预览失败: {e}")
@@ -250,5 +255,6 @@ async def render_mr_preview(
         active_icon=NO, active_text=active_text,
         mr_use_bg=bool(ShowConfig.get_config("MrUseBG")),
         locale="",
+        pile_hash=pile_hash,
     )
     return _pil_to_jpeg_bytes(result_img)

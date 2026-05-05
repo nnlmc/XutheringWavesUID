@@ -117,6 +117,13 @@ logger.debug("[XutheringWavesUID] 用户活跃度 hook 已注册")
 from .utils.localization import init_localization
 init_localization()
 
+# 构建自定义图 hash 索引 (面板/背景/体力), 用于 hash → 路径 O(1) 查询。
+try:
+    from .wutheringwaves_charinfo.card_hash_index import build as _build_card_hash_index
+    _build_card_hash_index()
+except Exception as _e:
+    logger.warning(f"[XutheringWavesUID] 自定义图 hash 索引构建失败: {_e}")
+
 
 # 迁移: 删除旧的 login_cache.db (已重命名为 url_cache.db)
 from .utils.resource.RESOURCE_PATH import MAIN_PATH as _MAIN_PATH

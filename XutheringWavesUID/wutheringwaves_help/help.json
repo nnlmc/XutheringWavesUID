@@ -613,7 +613,15 @@
       {
         "name": "设置体力背景",
         "desc": "设置体力背景",
-        "eg": "设置体力背景长离",
+        "eg": "设置体力背景长离/a1b2c3d4",
+        "need_ck": false,
+        "need_sk": false,
+        "need_admin": false
+      },
+      {
+        "name": "设置角色面板图",
+        "desc": "设置角色面板图",
+        "eg": "设置长离面板图a1b2c3d4",
         "need_ck": false,
         "need_sk": false,
         "need_admin": false
@@ -738,6 +746,14 @@
         "name": "压缩面板图",
         "desc": "压缩面板图",
         "eg": "压缩面板图",
+        "need_ck": false,
+        "need_sk": false,
+        "need_admin": true
+      },
+      {
+        "name": "重新计算特征",
+        "desc": "重新计算所有面板/背景/体力图的ORB特征缓存，自动清理无对应图片的孤儿缓存",
+        "eg": "重新计算特征",
         "need_ck": false,
         "need_sk": false,
         "need_admin": true

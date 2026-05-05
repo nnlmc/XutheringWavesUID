@@ -19,15 +19,16 @@ from gsuid_core.utils.download_resource.download_file import download
 from ..utils.image import compress_to_webp
 from ..wutheringwaves_config import WutheringWavesConfig
 from ..utils.name_convert import easy_id_to_name
-from ..utils.resource.RESOURCE_PATH import CUSTOM_CARD_PATH
+from ..utils.resource.RESOURCE_PATH import CUSTOM_CARD_PATH, CUSTOM_ORB_PATH
+from . import card_hash_index
+from .card_hash_index import compute_hash as get_hash_id
 from .card_utils import (
     CUSTOM_PATH_MAP,
     CUSTOM_PATH_NAME_MAP,
+    cv2 as _cv2,
     delete_orb_cache,
     find_duplicates_for_new_images,
-    find_hash_in_all_types,
     get_char_id_and_name,
-    get_hash_id,
     get_image,
     get_orb_dir_for_char,
     ORB_BLOCK_THRESHOLD,
@@ -151,6 +152,7 @@ async def upload_custom_card(
             for img_path in new_images:
                 if img_path not in blocked_paths:
                     update_orb_cache(img_path)
+                    card_hash_index.add(target_type, char_id, img_path)
                     success_ids.append(get_hash_id(img_path.name))
 
             if success_ids:
@@ -201,18 +203,11 @@ async def delete_custom_card(bot: Bot, ev: Event, char: str, hash_id: str, targe
         return await bot.send((" " if at_sender else "") + msg, at_sender)
     type_label = CUSTOM_PATH_NAME_MAP.get(target_type, target_type)
 
-    temp_dir = CUSTOM_PATH_MAP.get(target_type, CUSTOM_CARD_PATH) / f"{char_id}"
-    if not temp_dir.exists():
+    files_map = card_hash_index.list_dir(target_type, char_id)
+    if not files_map:
         msg = f"[鸣潮] 角色【{char}】暂未上传过{type_label}图！"
         return await bot.send((" " if at_sender else "") + msg, at_sender)
 
-    files_map = {
-        get_hash_id(f.name): f
-        for f in temp_dir.iterdir()
-        if f.is_file() and f.suffix in [".jpg", ".png", ".jpeg", ".webp"]
-    }
-
-    # 支持逗号分隔的多个ID
     hash_ids = [id.strip() for id in hash_id.replace("，", ",").split(",") if id.strip()]
 
     if not hash_ids:
@@ -231,19 +226,19 @@ async def delete_custom_card(bot: Bot, ev: Event, char: str, hash_id: str, targe
                 target_file = files_map[single_hash_id]
                 target_file.unlink()
                 delete_orb_cache(target_file)
+                card_hash_index.remove(target_type, char_id, target_file)
                 deleted_ids.append(single_hash_id)
             except Exception as e:
                 logger.exception(f"删除文件失败: {target_file} - {e}")
                 not_found_ids.append(single_hash_id)
 
-    # 构建返回消息
     msg_parts = []
     if deleted_ids:
         msg_parts.append(f"成功删除id: {', '.join(deleted_ids)}")
     else:
         if not_found_ids:
             for single_hash_id in not_found_ids:
-                matches = find_hash_in_all_types(single_hash_id)
+                matches = card_hash_index.find(single_hash_id)
                 if matches:
                     for t, other_char_id, _ in matches:
                         char_name = easy_id_to_name(other_char_id, other_char_id)
@@ -267,22 +262,11 @@ async def delete_all_custom_card(bot: Bot, ev: Event, char: str, target_type: st
         return await bot.send((" " if at_sender else "") + msg, at_sender)
     type_label = CUSTOM_PATH_NAME_MAP.get(target_type, target_type)
 
+    if not card_hash_index.list_dir(target_type, char_id):
+        msg = f"[鸣潮] 角色【{char}】暂未上传过{type_label}图！"
+        return await bot.send((" " if at_sender else "") + msg, at_sender)
+
     temp_dir = CUSTOM_PATH_MAP.get(target_type, CUSTOM_CARD_PATH) / f"{char_id}"
-    if not temp_dir.exists():
-        msg = f"[鸣潮] 角色【{char}】暂未上传过{type_label}图！"
-        return await bot.send((" " if at_sender else "") + msg, at_sender)
-
-    files_map = {
-        get_hash_id(f.name): f
-        for f in temp_dir.iterdir()
-        if f.is_file() and f.suffix in [".jpg", ".png", ".jpeg", ".webp"]
-    }
-
-    if len(files_map) == 0:
-        msg = f"[鸣潮] 角色【{char}】暂未上传过{type_label}图！"
-        return await bot.send((" " if at_sender else "") + msg, at_sender)
-
-    # 删除文件夹包括里面的内容
     try:
         if temp_dir.exists() and temp_dir.is_dir():
             shutil.rmtree(temp_dir)
@@ -291,6 +275,7 @@ async def delete_all_custom_card(bot: Bot, ev: Event, char: str, target_type: st
             shutil.rmtree(orb_dir)
     except Exception:
         pass
+    card_hash_index.clear_dir(target_type, char_id)
 
     msg = f"[鸣潮] 删除角色【{char}】的所有{type_label}图成功！"
     return await bot.send((" " if at_sender else "") + msg, at_sender)
@@ -358,6 +343,9 @@ async def compress_all_custom_card(bot: Bot, ev: Event):
             except Exception as exc:
                 logger.error(f"Error processing {file_info[0]}: {exc}")
 
+    if rename_count or count:
+        card_hash_index.build()
+
     msgs = []
     if rename_count > 0:
         msgs.append(f"重命名【{rename_count}】张中文命名图片")
@@ -367,3 +355,62 @@ async def compress_all_custom_card(bot: Bot, ev: Event):
         return await bot.send(f"[鸣潮] {'，'.join(msgs)}成功！")
     else:
         return await bot.send("[鸣潮] 暂未找到需要压缩或重命名的资源！")
+
+
+async def recompute_all_orb_features(bot: Bot, ev: Event):
+    """重算所有 ORB 特征 npz: 有对应图片 → 重算覆盖, 无对应图片 → 视为孤儿删除。"""
+    if _cv2 is None:
+        return await bot.send("[鸣潮] 未安装opencv-python，无法重算ORB特征。")
+
+    if not CUSTOM_ORB_PATH.exists():
+        return await bot.send("[鸣潮] 暂无ORB缓存目录，无需重算。")
+
+    to_recompute: List[Path] = []
+    orphans: List[Path] = []
+    for npz_path in CUSTOM_ORB_PATH.rglob("*.npz"):
+        rel_parts = npz_path.relative_to(CUSTOM_ORB_PATH).parts
+        if len(rel_parts) < 2 or rel_parts[0] not in CUSTOM_PATH_MAP:
+            orphans.append(npz_path)
+            continue
+        # 反向映射: <type>/<...>.<ext>.npz -> CUSTOM_PATH_MAP[type]/<...>.<ext>
+        image_path = CUSTOM_PATH_MAP[rel_parts[0]] / Path(*rel_parts[1:]).with_suffix("")
+        if image_path.is_file():
+            to_recompute.append(image_path)
+        else:
+            orphans.append(npz_path)
+
+    deleted = 0
+    for n in orphans:
+        try:
+            n.unlink()
+            deleted += 1
+        except Exception as e:
+            logger.warning(f"[鸣潮] 删除孤儿ORB缓存失败 {n}: {e}")
+
+    if not to_recompute:
+        if deleted:
+            return await bot.send(f"[鸣潮] 已清理 {deleted} 个孤儿ORB缓存，无图片需重算。")
+        return await bot.send("[鸣潮] 未找到任何ORB缓存。")
+
+    use_cores = max(os.cpu_count() - 2 if os.cpu_count() else 0, 1)
+    await bot.send(f"[鸣潮] 开始重算 {len(to_recompute)} 个ORB特征, 使用 {use_cores} 核心...")
+
+    recomputed = 0
+    failed = 0
+    loop = asyncio.get_running_loop()
+    with ThreadPoolExecutor(max_workers=use_cores) as executor:
+        tasks = [loop.run_in_executor(executor, update_orb_cache, p) for p in to_recompute]
+        for ok in await asyncio.gather(*tasks, return_exceptions=True):
+            if ok is True:
+                recomputed += 1
+            else:
+                failed += 1
+                if isinstance(ok, BaseException):
+                    logger.warning(f"[鸣潮] 重算ORB异常: {ok}")
+
+    parts = [f"重算 {recomputed} 个"]
+    if failed:
+        parts.append(f"失败 {failed} 个")
+    if deleted:
+        parts.append(f"清理孤儿 {deleted} 个")
+    await bot.send(f"[鸣潮] ORB特征重算完成: {'，'.join(parts)}。")

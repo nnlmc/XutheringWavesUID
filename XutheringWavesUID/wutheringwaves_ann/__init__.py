@@ -21,6 +21,7 @@ from ..utils.database.models import WavesBind
 from ..wutheringwaves_config import WutheringWavesConfig
 from ..wutheringwaves_config.ann_config import get_ann_new_ids, set_ann_new_ids
 from ..utils.resource.RESOURCE_PATH import ANN_CARD_PATH, BAKE_PATH, CALENDAR_PATH, WIKI_CACHE_PATH
+from ..wutheringwaves_resource.panel_editor.storage import PANEL_EDIT_TMP
 from ..utils.database.waves_subscribe import WavesSubscribe
 
 sv_ann = SV("鸣潮公告")
@@ -298,6 +299,15 @@ async def clean_cache_directories(days: int) -> str:
         results.append(f"烘焙: {bake_count}个文件, {bake_space / 1024 / 1024:.2f}MB")
         total_count += bake_count
         total_space += bake_space / 1024 / 1024
+
+    # 面板编辑临时目录（无条件全清，不计入统计）
+    if PANEL_EDIT_TMP.exists():
+        for f in PANEL_EDIT_TMP.iterdir():
+            if f.is_file():
+                try:
+                    f.unlink()
+                except Exception:
+                    pass
 
     if total_count == 0:
         return f"没有找到需要清理的缓存文件(公告/日历/烘焙保留{days}天内的文件，wiki全部删除)"

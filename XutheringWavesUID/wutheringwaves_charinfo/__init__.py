@@ -23,6 +23,7 @@ from .upload_card import (
     get_custom_card_list,
     delete_all_custom_card,
     compress_all_custom_card,
+    recompute_all_orb_features,
 )
 from .card_utils import (
     CUSTOM_PATH_NAME_MAP,
@@ -52,12 +53,13 @@ waves_char_card_list = SV("waves面板图列表", priority=3, pm=1)
 waves_delete_char_card = SV("waves删除面板图", priority=3, pm=1)
 waves_delete_all_card = SV("waves删除全部面板图", priority=3, pm=1)
 waves_compress_card = SV("waves面板图压缩", priority=3, pm=1)
+waves_recompute_orb = SV("waves重算ORB特征", priority=3, pm=1)
 waves_repeated_card = SV("waves面板图查重", priority=2, pm=1)
 waves_new_get_char_info = SV("waves新获取面板", priority=3)
 waves_new_get_one_char_info = SV("waves新获取单个角色面板", priority=3)
-waves_new_char_detail = SV("waves新角色面板", priority=5)
+waves_new_char_detail = SV("waves角色面板", priority=5)
 waves_char_tips = SV("waves面板图权限提示和审核", priority=4)
-waves_char_detail = SV("waves角色面板", priority=5)
+waves_char_detail = SV("waves角色查询", priority=5)
 
 _repeated_card_lock = asyncio.Lock()
 
@@ -123,6 +125,14 @@ async def delete_all_char_card(bot: Bot, ev: Event):
 @waves_compress_card.on_fullmatch(("压缩面板图", "压缩面包图", "压缩🍞图", "压缩背景图", "压缩体力图", "压缩card图", "压缩bg图", "压缩mr图"), block=True)
 async def compress_char_card(bot: Bot, ev: Event):
     await compress_all_custom_card(bot, ev)
+
+
+@waves_recompute_orb.on_fullmatch(
+    ("重新计算特征", "重新计算面板图特征", "重新计算orb", "重新计算面板图orb"),
+    block=True,
+)
+async def recompute_orb_features_handler(bot: Bot, ev: Event):
+    await recompute_all_orb_features(bot, ev)
     
     
 @waves_repeated_card.on_regex(

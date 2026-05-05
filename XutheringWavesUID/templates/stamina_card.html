@@ -341,11 +341,28 @@
         white-space: nowrap;
     }
 
+    .pile-hash {
+        position: absolute;
+        top: 6px;
+        right: 10px;
+        z-index: 11;
+        font-size: 16px;
+        color: rgba(255, 255, 255, 0.18);
+        text-shadow: 0 1px 1px rgba(0, 0, 0, 0.20);
+        letter-spacing: 0.5px;
+        font-family: "JetBrains Mono", "SF Mono", Consolas, monospace;
+        pointer-events: none;
+    }
+
 </style>
 </head>
 <body>
 <div class="container">
-    
+
+    {% if pile_hash %}
+    <div class="pile-hash">{{ pile_hash }}</div>
+    {% endif %}
+
     <!-- Background Layer -->
     <div class="bg-layer">
         {% if has_bg %}

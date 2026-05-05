@@ -45,6 +45,22 @@ def _try_delete_orb_cache(p: Path) -> None:
         pass
 
 
+def _index_add(t: str, char_id: str, p: Path) -> None:
+    try:
+        from ...wutheringwaves_charinfo import card_hash_index
+        card_hash_index.add(t, char_id, p)
+    except Exception as e:
+        logger.debug(f"[鸣潮·面板编辑] hash 索引 add 跳过: {e}")
+
+
+def _index_remove(t: str, char_id: str, p: Path) -> None:
+    try:
+        from ...wutheringwaves_charinfo import card_hash_index
+        card_hash_index.remove(t, char_id, p)
+    except Exception as e:
+        logger.debug(f"[鸣潮·面板编辑] hash 索引 remove 跳过: {e}")
+
+
 _DISABLED_HTML = """<!DOCTYPE html>
 <html lang="zh-CN"><head>
 <meta charset="UTF-8"/>
@@ -354,6 +370,7 @@ async def api_confirm(payload: dict, _: None = Depends(require_auth)):
 
     final = st.relocate_to_target(target_type, char_id, current, suffix_hint=current.suffix)
     _try_update_orb_cache(final)
+    _index_add(target_type, char_id, final)
     if original is not None:
         try:
             original.unlink()
@@ -388,6 +405,7 @@ async def api_replace_existing(payload: dict, _: None = Depends(require_auth)):
     _try_delete_orb_cache(target)
     target.write_bytes(current.read_bytes())
     _try_update_orb_cache(target)
+    _index_add(target_type, char_id, target)
 
     st.cleanup_tmp(token)
     return {"ok": True, "name": target.name, "hash_id": st.hash_id_for(target.name)}
@@ -406,6 +424,7 @@ async def api_delete(payload: dict, _: None = Depends(require_auth)):
         raise HTTPException(404, "image not found")
     _try_delete_orb_cache(target)
     target.unlink()
+    _index_remove(target_type, char_id, target)
     return {"ok": True}
 
 
