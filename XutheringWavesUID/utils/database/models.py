@@ -37,6 +37,7 @@ exec_list.extend(
         'ALTER TABLE WavesBind ADD COLUMN pgr_uid TEXT DEFAULT ""',
         'ALTER TABLE WavesUser ADD COLUMN created_time INTEGER',
         'ALTER TABLE WavesUser ADD COLUMN last_used_time INTEGER',
+        'ALTER TABLE WavesUserSdk ADD COLUMN bat_expires_at INTEGER',
         "UPDATE WavesUser SET uid = COALESCE(NULLIF(uid, ''), pgr_uid) WHERE IFNULL(uid, '') = '' AND IFNULL(pgr_uid, '') != ''",
         "UPDATE WavesUser SET game_id = 2 WHERE IFNULL(pgr_uid, '') != ''",
         "UPDATE WavesUser SET game_id = CASE WHEN IFNULL(game_id, 0) = 0 THEN 3 ELSE game_id END WHERE IFNULL(pgr_uid, '') = ''",

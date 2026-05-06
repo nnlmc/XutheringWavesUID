@@ -23,6 +23,7 @@ class WavesUserSdk(BaseModel, table=True):
 
     uid: str = Field(default="", title="鸣潮UID", index=True)
     region: str = Field(default="", title="区服")
+    bat_expires_at: Optional[int] = Field(default=None, title="bat过期时戳(秒)")
     created_time: Optional[int] = Field(default=None, title="创建时间")
     updated_time: Optional[int] = Field(default=None, title="更新时间")
 
@@ -124,6 +125,28 @@ class WavesUserSdk(BaseModel, table=True):
                 updated_time=now,
             )
         )
+
+    @classmethod
+    @with_session
+    async def update_bat_expires_at(
+        cls: Type[T_WavesUserSdk],
+        session: AsyncSession,
+        user_id: str,
+        bot_id: str,
+        uid: str,
+        expires_at: Optional[int],
+    ) -> None:
+        """access_token 续登后写入新的过期时戳, None 表示清除。"""
+        sql = (
+            update(cls)
+            .where(
+                col(cls.user_id) == user_id,
+                col(cls.bot_id) == bot_id,
+                col(cls.uid) == uid,
+            )
+            .values(bat_expires_at=expires_at)
+        )
+        await session.execute(sql)
 
     @classmethod
     @with_session

@@ -17,6 +17,9 @@ ANN_DATA_PATH = MAIN_PATH / "ann_data.json"
 # 用户数据保存文件
 PLAYER_PATH = MAIN_PATH / "players"
 
+# 抽卡记录备份目录（import/update/delete 三类备份均在此目录下，按 uid 分子目录）
+GACHA_BACKUP_PATH = MAIN_PATH / "backup"
+
 # 储存数据保存路径
 CACHE_PATH = MAIN_PATH / "cache"
 
@@ -109,6 +112,7 @@ def init_dir():
     for i in [
         MAIN_PATH,
         PLAYER_PATH,
+        GACHA_BACKUP_PATH,
         RESOURCE_PATH,
         PHANTOM_PATH,
         MATERIAL_PATH,

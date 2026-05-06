@@ -15,6 +15,7 @@ waves_get_explore = SV("waves获取探索度")
     (
         "ts",
         "探索",
+        "tsd",
         "探索度",
     )
 )

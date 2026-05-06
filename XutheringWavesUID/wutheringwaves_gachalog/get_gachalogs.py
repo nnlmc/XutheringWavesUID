@@ -19,7 +19,9 @@ from ..utils.constants import WAVES_GAME_ID
 from ..utils.waves_api import waves_api
 from ..utils.database.models import WavesUser
 from .model_for_waves_plugin import WavesPluginGacha
-from ..utils.resource.RESOURCE_PATH import PLAYER_PATH
+from ..utils.resource.RESOURCE_PATH import GACHA_BACKUP_PATH, PLAYER_PATH
+
+GACHA_BACKUP_LIMIT = 10
 
 gacha_type_meta_data = {
     "角色精准调谐": "1",
@@ -157,14 +159,29 @@ async def get_new_gachalog_for_file(
     return None, new, new_count
 
 
+def prune_gacha_backups(uid: str, type: str, limit: int = GACHA_BACKUP_LIMIT):
+    backup_dir = GACHA_BACKUP_PATH / str(uid)
+    if not backup_dir.exists():
+        return
+    files = sorted(
+        backup_dir.glob(f"{type}_gacha_logs_*.json"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    for old in files[limit:]:
+        try:
+            old.unlink()
+        except Exception as e:
+            logger.warning(f"[抽卡备份] 清理旧备份失败 {old}: {e}")
+
+
 async def backup_gachalogs(uid: str, gachalogs_history: Dict, type: str):
-    path = PLAYER_PATH / str(uid)
-    if not path.exists():
-        path.mkdir(parents=True, exist_ok=True)
-    # 备份
-    backup_path = path / f"{type}_gacha_logs_{datetime.now().strftime('%Y-%m-%d.%H%M%S')}.json"
+    backup_dir = GACHA_BACKUP_PATH / str(uid)
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    backup_path = backup_dir / f"{type}_gacha_logs_{datetime.now().strftime('%Y-%m-%d.%H%M%S')}.json"
     async with aiofiles.open(backup_path, "w", encoding="UTF-8") as file:
         await file.write(json.dumps(gachalogs_history, ensure_ascii=False))
+    prune_gacha_backups(uid, type)
 
 
 async def save_link_source_gachalogs(uid: str, record_id: str, data: Dict[str, List[GachaLog]]):

@@ -12,7 +12,8 @@ from gsuid_core.models import Event
 from gsuid_core.subscribe import gs_subscribe
 
 from .ann_card import ann_list_card, ann_detail_card
-from .data_review_card import data_review_card
+from .anniv_report import anniv_report
+from ..utils.single_flight import SingleFlightLock
 from ..utils.waves_api import waves_api
 from ..utils.hint import error_reply
 from ..utils.at_help import ruser_id
@@ -27,10 +28,13 @@ from ..utils.database.waves_subscribe import WavesSubscribe
 sv_ann = SV("鸣潮公告")
 sv_ann_clear_cache = SV("鸣潮公告缓存清理", pm=0, priority=3)
 sv_ann_sub = SV("订阅鸣潮公告", pm=3)
-# sv_data_review = SV("鸣潮年度报告")
+sv_anniv_report = SV("鸣潮周年庆")
 
 task_name_ann = "订阅鸣潮公告"
 ann_minute_check: int = WutheringWavesConfig.get_config("AnnMinuteCheck").data
+
+# 周年报告触发锁
+anniv_report_lock = SingleFlightLock()
 
 
 @sv_ann.on_command("公告")
@@ -67,22 +71,37 @@ async def ann_(bot: Bot, ev: Event):
     return await bot.send(img)  # type: ignore
 
 
-# @sv_data_review.on_fullmatch(("时光机", "年度报告", "年报"), block=True)
-# async def data_review_(bot: Bot, ev: Event):
-#     """查询库街区年度报告"""
-#     logger.info("[鸣潮]开始执行[年度报告]")
-#     user_id = ruser_id(ev)
-#     uid = await WavesBind.get_uid_by_game(user_id, ev.bot_id)
-#     if not uid:
-#         return await bot.send(error_reply(WAVES_CODE_102))
-#
-#     is_self_ck, ck = await waves_api.get_ck_result(uid, user_id, ev.bot_id)
-#     if not ck or not is_self_ck:
-#         return await bot.send(error_reply(WAVES_CODE_102))
-#
-#     im = await data_review_card(ck)
-#     if im:
-#         await bot.send(im)
+@sv_anniv_report.on_fullmatch(("周年庆", "周年报", "周年回顾"), block=True)
+async def anniv_report_(bot: Bot, ev: Event):
+    """查询鸣潮 2 周年《探秘！记忆程序》报告"""
+    logger.info("[鸣潮]开始执行[周年庆]")
+    user_id = ruser_id(ev)
+    uid = await WavesBind.get_uid_by_game(user_id, ev.bot_id)
+    if not uid:
+        return await bot.send(error_reply(WAVES_CODE_102))
+
+    if not anniv_report_lock.acquire(f"{user_id}_{uid}"):
+        return
+    try:
+        is_self_ck, ck = await waves_api.get_ck_result(uid, user_id, ev.bot_id)
+        if not ck or not is_self_ck:
+            return await bot.send(error_reply(WAVES_CODE_102))
+
+        waves_token = WutheringWavesConfig.get_config("WavesToken").data
+        if not waves_token:
+            return
+
+        result = await anniv_report(uid, waves_token)
+        if isinstance(result, str):
+            return await bot.send(result)
+        from base64 import b64encode
+        from gsuid_core.segment import MessageSegment
+        nodes = [f"base64://{b64encode(p).decode()}" for p in result]
+        if ev.group_id:
+            await bot.send(" 周年报告已完成", at_sender=True)
+        await bot.send(MessageSegment.node(nodes))
+    finally:
+        anniv_report_lock.release(f"{user_id}_{uid}")
 
 
 @sv_ann_sub.on_fullmatch(("订阅公告", "訂閱公告"))

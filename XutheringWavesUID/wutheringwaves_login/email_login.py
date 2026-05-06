@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 import uuid
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional
@@ -125,6 +126,7 @@ async def _persist_login(
     auto_token: str = state["auto_token"]
     access_token: str = state["access_token"]
     device_no: str = state["device_no"]
+    expires_in: int = int(state.get("expires_in") or 0)
 
     existing = await WavesUser.get_user_by_attr(
         user_id, bot_id, "uid", role_id, game_id=WAVES_GAME_ID
@@ -165,6 +167,10 @@ async def _persist_login(
     is_first_record = await WavesUserSdk.upsert(
         user_id, bot_id, role_id, region=region
     )
+    if expires_in > 0:
+        await WavesUserSdk.update_bat_expires_at(
+            user_id, bot_id, role_id, int(time.time()) + expires_in
+        )
 
     res = await WavesBind.insert_waves_uid(user_id, bot_id, role_id, group_id, lenth_limit=9)
     if res in (0, -2):
@@ -296,6 +302,7 @@ async def waves_launcher_login(data: EmailLoginRequest):
             "device_no": device_no,
             "auto_token": login_resp.data.auto_token,
             "access_token": tok_resp.data.access_token,
+            "expires_in": tok_resp.data.expires_in,
             "regions": [r.model_dump() for r in roles],
         }
     )
