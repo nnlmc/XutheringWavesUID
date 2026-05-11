@@ -10,7 +10,7 @@ from ..utils.api.request_util import KuroApiResp
 from ..utils.at_help import ruser_id
 from ..utils.util import get_hide_uid_pref, hide_uid
 from ..utils.error_reply import ERROR_CODE, WAVES_CODE_102
-from ..utils.render_utils import render_html, get_image_b64_with_cache, PLAYWRIGHT_AVAILABLE
+from ..utils.render_utils import render_html, get_image_b64_with_cache, get_footer_b64, PLAYWRIGHT_AVAILABLE
 from ..utils.resource.RESOURCE_PATH import (
     SIGN_SURFACE_PATH,
     waves_templates,
@@ -208,6 +208,7 @@ async def draw_sign_calendar(uid: str, ev: Event) -> Optional[bytes | str]:
         "loop_card_bg": loop_card_bg,
         "cycle_process_grey": cycle_process_grey,
         "cycle_process_light": cycle_process_light,
+        "footer_b64": get_footer_b64(footer_type="white") or "",
     }
 
     img = await render_html(waves_templates, "sign/sign_calendar.html", context)

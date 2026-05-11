@@ -5,7 +5,7 @@ from PIL import Image, ImageDraw
 
 from ..utils.api.model import SignInInitData
 from ..utils.fonts.waves_fonts import waves_font_origin
-from ..utils.image import pic_download_from_url
+from ..utils.image import add_footer, pic_download_from_url
 from ..utils.resource.RESOURCE_PATH import SIGN_SURFACE_PATH
 
 
@@ -18,7 +18,7 @@ CYCLE_PAD_TOP = 20
 CYCLE_PAD_BOTTOM = 20
 CYCLE_MARGIN_TOP = 20
 CYCLE_MARGIN_BOTTOM = 30
-BOX_BOTTOM_CROP_TOP = 60
+BOX_BOTTOM_CROP_TOP = 36
 
 CELL_W_MONTH = 134
 CELL_H_MONTH = 146
@@ -255,7 +255,7 @@ async def render_sign_calendar_pil(
     box_bottom_h = max(raw_bottom_h - BOX_BOTTOM_CROP_TOP, 0)
     box_section_h = box_top_h + grid_h + box_bottom_h - BOX_BOTTOM_OVERLAP
 
-    bottom_pad = 40
+    bottom_pad = 80
     canvas_h = cover_h + cycle_section_h + box_section_h + bottom_pad
 
     canvas = Image.new("RGBA", (CANVAS_W, canvas_h), main_bg + (255,))
@@ -373,6 +373,8 @@ async def render_sign_calendar_pil(
         _paste(canvas, cell_img, (cx, cy))
 
     y += grid_h
+
+    add_footer(canvas, color="white")
 
     out = BytesIO()
     canvas.convert("RGB").save(out, format="PNG")
