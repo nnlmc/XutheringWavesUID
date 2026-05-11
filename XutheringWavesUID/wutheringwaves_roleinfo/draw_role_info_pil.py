@@ -40,6 +40,7 @@ from ..utils.fonts.waves_fonts import (
 from ..utils.resource.constant import NORMAL_LIST, SPECIAL_CHAR_INT
 
 TEXT_PATH = Path(__file__).parent / "texture2d"
+TOP_TRIM = 150
 
 
 async def draw_role_img(uid: str, ck: str, ev: Event):
@@ -123,6 +124,7 @@ async def draw_role_img(uid: str, ck: str, ev: Event):
     yset = 470
     if account_info.is_full:
         yset += bs.size[1]
+    yset -= TOP_TRIM
 
     w = 1000
     h = 100 + yset + 200 * int(roleTotalNum / 4 + (1 if roleTotalNum % 4 else 0))
@@ -216,12 +218,12 @@ async def draw_role_img(uid: str, ck: str, ev: Event):
         waves_font_25,
         "lm",
     )
-    card_img.paste(base_info_bg, (35, 170), base_info_bg)
+    card_img.paste(base_info_bg, (35, 0), base_info_bg)
 
     # 头像 头像环
     avatar, avatar_ring = await draw_pic_with_ring(ev)
-    card_img.paste(avatar, (45, 220), avatar)
-    card_img.paste(avatar_ring, (55, 230), avatar_ring)
+    card_img.paste(avatar, (45, 50), avatar)
+    card_img.paste(avatar_ring, (55, 60), avatar_ring)
 
     # 右侧装饰
     char = Image.open(TEXT_PATH / "char.png")
@@ -242,7 +244,7 @@ async def draw_role_img(uid: str, ck: str, ev: Event):
         title_bar_draw.text((810, 78), f"Lv.{account_info.worldLevel}", "white", waves_font_42, "mm")
         card_img.paste(line, (0, yset - bs.size[1] - 70), line)
         card_img.paste(bs, (-10, yset - bs.size[1] - 70), bs)
-        card_img.paste(title_bar, (0, 220), title_bar)
+        card_img.paste(title_bar, (0, 50), title_bar)
 
     line2 = Image.open(TEXT_PATH / "line.png")
     line2_draw = ImageDraw.Draw(line2)

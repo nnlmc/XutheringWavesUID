@@ -129,12 +129,12 @@ async def _email_login_local(bot: Bot, ev: Event, url: str):
 async def _email_login_other(bot: Bot, ev: Event, url: str):
     # 外置 ww-login 处理页面与 SDK 调用，bot 仅领 token、转发链接、轮询结果。
     at_sender = True if ev.group_id else False
-    auth = {"bot_id": ev.bot_id, "user_id": ev.user_id, "flow": LOGIN_FLOW}
+    auth = {"bot_id": ev.bot_id, "user_id": ev.user_id}
 
     async with httpx.AsyncClient() as client:
         try:
             r = await client.post(
-                url + "/waves/token",
+                url + "/waves/l/token",
                 json=auth,
                 headers={"Content-Type": "application/json"},
             )
@@ -195,23 +195,26 @@ async def _email_login_other(bot: Bot, ev: Event, url: str):
                         await asyncio.sleep(5)
                         continue
 
-                    if data.get("error"):
+                    # ww-login /waves/l/get 契约：未完成 -> success=true, done=false；
+                    # 失败 -> success=false, done=true, msg=...；成功 -> done=true 且字段齐全。
+                    if data.get("done") and not data.get("success", True):
+                        err = str(data.get("msg") or "邮箱登录失败")
                         return await bot.send(
                             (" " if at_sender else "")
-                            + f"{GAME_TITLE} {data['error']}",
+                            + f"{GAME_TITLE} {err}",
                             at_sender=at_sender,
                         )
 
-                    if not data.get("ready"):
+                    if not data.get("done"):
                         await asyncio.sleep(1)
                         continue
 
-                    role_id = str(data.get("role_id") or "")
-                    region = str(data.get("region") or "")
+                    role_id = str(data.get("selected_uid") or "")
+                    region = str(data.get("selected_region") or "")
                     role_name = str(data.get("role_name") or "")
                     auto_token = str(data.get("auto_token") or "")
                     access_token = str(data.get("access_token") or "")
-                    device_no = str(data.get("device_no") or "")
+                    device_no = str(data.get("did") or "")
                     if not role_id or not region or not auto_token or not access_token:
                         logger.error(
                             f"[鸣潮·邮箱登录] /waves/l/get 返回字段缺失: {data!r}"

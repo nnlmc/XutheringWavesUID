@@ -23,6 +23,10 @@ from ..utils.queues.const import QUEUE_MATRIX_RECORD
 from ..utils.queues.queues import push_item
 from ..utils.resource.RESOURCE_PATH import PLAYER_PATH, MATRIX_PATH, waves_templates
 from ..utils.image import pil_to_b64, get_waves_bg, get_event_avatar, CHAIN_COLOR
+from .draw_matrix_card_pil import (
+    draw_matrix_index_img as draw_matrix_index_img_pil,
+    draw_matrix_detail_img as draw_matrix_detail_img_pil,
+)
 from ..utils.render_utils import (
     PLAYWRIGHT_AVAILABLE,
     render_html,
@@ -56,6 +60,15 @@ def _get_score_color_class(score: int) -> str:
         return "score-blue"
     else:
         return "score-grey"
+
+
+async def _get_account_info(uid: str, ck: str) -> Union[AccountBaseInfo, str]:
+    account_info_res = await waves_api.get_base_info(uid, ck)
+    if not account_info_res.success:
+        return account_info_res.throw_msg()
+    if not account_info_res.data:
+        return f"用户未展示数据, 请尝试【{PREFIX}登录】"
+    return AccountBaseInfo.model_validate(account_info_res.data)
 
 
 async def get_matrix_data(uid: str, ck: str, is_self_ck: bool) -> Union[MatrixDetail, str]:
@@ -260,7 +273,6 @@ async def draw_matrix_img(ev: Event, uid: str, user_id: str) -> Union[bytes, str
     is_self_ck, ck = await waves_api.get_ck_result(uid, user_id, ev.bot_id)
     if not ck:
         return error_reply(WAVES_CODE_102)
-    user_pref = await get_hide_uid_pref(uid, user_id, ev.bot_id)
 
     # 矩阵数据
     matrix_detail: Union[MatrixDetail, str] = await get_matrix_data(uid, ck, is_self_ck)
@@ -294,22 +306,28 @@ async def draw_matrix_img(ev: Event, uid: str, user_id: str) -> Union[bytes, str
 
     if is_self_ck:
         target_mode_id = _resolve_mode_id(ev)
-        return await _draw_matrix_detail_html(ev, uid, ck, matrix_detail, is_self_ck, target_mode_id, char_ids_map)
+        return await _draw_matrix_detail_html(
+            ev,
+            uid,
+            user_id,
+            ck,
+            matrix_detail,
+            is_self_ck,
+            target_mode_id,
+            char_ids_map,
+        )
     else:
         # 未登录: 展示所有模式，不区分稳态/奇点
-        return await _draw_matrix_index_html(ev, uid, ck, matrix_detail)
+        return await _draw_matrix_index_html(ev, uid, user_id, ck, matrix_detail)
 
 
-async def _get_common_context(ev: Event, uid: str, ck: str) -> Union[dict, str]:
+async def _get_common_context(ev: Event, uid: str, user_id: str, ck: str) -> Union[dict, str]:
     """获取用户卡片等通用上下文"""
-    account_info_res = await waves_api.get_base_info(uid, ck)
-    if not account_info_res.success:
-        return account_info_res.throw_msg()
-    if not account_info_res.data:
-        return f"用户未展示数据, 请尝试【{PREFIX}登录】"
-    account_info = AccountBaseInfo.model_validate(account_info_res.data)
+    account_info = await _get_account_info(uid, ck)
+    if isinstance(account_info, str):
+        return account_info
 
-    user_pref = await get_hide_uid_pref(uid, ev.user_id, ev.bot_id)
+    user_pref = await get_hide_uid_pref(uid, user_id, ev.bot_id)
 
     avatar = await get_event_avatar(ev)
     avatar_url = pil_to_b64(avatar, quality=75)
@@ -334,16 +352,74 @@ async def _get_common_context(ev: Event, uid: str, ck: str) -> Union[dict, str]:
     }
 
 
+def _get_current_date() -> str:
+    return datetime.now(timezone.utc).astimezone(
+        timezone(timedelta(hours=8))
+    ).strftime("%Y-%m-%d")
+
+
+async def _draw_matrix_index_pil(
+    ev: Event, uid: str, user_id: str, ck: str, matrix_detail: MatrixDetail
+) -> Union[bytes, str]:
+    user_pref = await get_hide_uid_pref(uid, user_id, ev.bot_id)
+    try:
+        account_info = await _get_account_info(uid, ck)
+        if isinstance(account_info, str):
+            return account_info
+
+        return await draw_matrix_index_img_pil(
+            ev,
+            account_info,
+            user_pref,
+            _get_current_date(),
+            matrix_detail,
+        )
+    except Exception as e:
+        logger.exception(f"[鸣潮] 矩阵PIL渲染失败(Index): {e}")
+        return _draw_matrix_text_fallback(uid, matrix_detail, user_pref)
+
+
+async def _draw_matrix_detail_pil(
+    ev: Event,
+    uid: str,
+    user_id: str,
+    ck: str,
+    matrix_detail: MatrixDetail,
+    target_mode_id: int = 1,
+    char_ids_map: dict = None,
+) -> Union[bytes, str]:
+    user_pref = await get_hide_uid_pref(uid, user_id, ev.bot_id)
+    try:
+        account_info = await _get_account_info(uid, ck)
+        if isinstance(account_info, str):
+            return account_info
+
+        role_detail_info_map = await get_all_roleid_detail_info(uid)
+        return await draw_matrix_detail_img_pil(
+            ev,
+            account_info,
+            user_pref,
+            _get_current_date(),
+            matrix_detail,
+            role_detail_info_map or {},
+            target_mode_id,
+            char_ids_map,
+        )
+    except Exception as e:
+        logger.exception(f"[鸣潮] 矩阵PIL渲染失败(Detail): {e}")
+        return _draw_matrix_text_fallback(uid, matrix_detail, user_pref)
+
+
 async def _draw_matrix_index_html(
-    ev: Event, uid: str, ck: str, matrix_detail: MatrixDetail
+    ev: Event, uid: str, user_id: str, ck: str, matrix_detail: MatrixDetail
 ) -> Union[bytes, str]:
     """未登录用户的 HTML 渲染 — 所有模式显示在一起，不区分稳态/奇点"""
     use_html_render = WutheringWavesConfig.get_config("UseHtmlRender").data
     if not PLAYWRIGHT_AVAILABLE or not use_html_render:
-        return _draw_matrix_text_fallback(uid, matrix_detail)
+        return await _draw_matrix_index_pil(ev, uid, user_id, ck, matrix_detail)
 
     try:
-        ctx = await _get_common_context(ev, uid, ck)
+        ctx = await _get_common_context(ev, uid, user_id, ck)
         if isinstance(ctx, str):
             return ctx
 
@@ -386,26 +462,27 @@ async def _draw_matrix_index_html(
         if img_bytes:
             return img_bytes
         else:
-            logger.warning("[鸣潮] Playwright 渲染返回空, 回退到文本")
-            return _draw_matrix_text_fallback(uid, matrix_detail)
+            logger.warning("[鸣潮] Playwright 渲染返回空, 正在回退到 PIL 渲染")
+            return await _draw_matrix_index_pil(ev, uid, user_id, ck, matrix_detail)
 
     except Exception as e:
         logger.exception(f"[鸣潮] 矩阵HTML渲染失败: {e}")
-        return _draw_matrix_text_fallback(uid, matrix_detail)
+        return await _draw_matrix_index_pil(ev, uid, user_id, ck, matrix_detail)
 
 
 async def _draw_matrix_detail_html(
-    ev: Event, uid: str, ck: str, matrix_detail: MatrixDetail,
+    ev: Event, uid: str, user_id: str, ck: str, matrix_detail: MatrixDetail,
     is_self_ck: bool, target_mode_id: int = 1, char_ids_map: dict = None
 ) -> Union[bytes, str]:
     """已登录用户的 HTML 渲染 (详细队伍数据)"""
     use_html_render = WutheringWavesConfig.get_config("UseHtmlRender").data
-    user_pref = await get_hide_uid_pref(uid, ev.user_id, ev.bot_id)
     if not PLAYWRIGHT_AVAILABLE or not use_html_render:
-        return _draw_matrix_text_fallback(uid, matrix_detail, user_pref)
+        return await _draw_matrix_detail_pil(
+            ev, uid, user_id, ck, matrix_detail, target_mode_id, char_ids_map
+        )
 
     try:
-        ctx = await _get_common_context(ev, uid, ck)
+        ctx = await _get_common_context(ev, uid, user_id, ck)
         if isinstance(ctx, str):
             return ctx
 
@@ -536,12 +613,16 @@ async def _draw_matrix_detail_html(
         if img_bytes:
             return img_bytes
         else:
-            logger.warning("[鸣潮] Playwright 渲染返回空, 回退到文本")
-            return _draw_matrix_text_fallback(uid, matrix_detail, user_pref)
+            logger.warning("[鸣潮] Playwright 渲染返回空, 正在回退到 PIL 渲染")
+            return await _draw_matrix_detail_pil(
+                ev, uid, user_id, ck, matrix_detail, target_mode_id, char_ids_map
+            )
 
     except Exception as e:
         logger.exception(f"[鸣潮] 矩阵Detail HTML渲染失败: {e}")
-        return _draw_matrix_text_fallback(uid, matrix_detail, user_pref)
+        return await _draw_matrix_detail_pil(
+            ev, uid, user_id, ck, matrix_detail, target_mode_id, char_ids_map
+        )
 
 
 def _draw_matrix_text_fallback(
